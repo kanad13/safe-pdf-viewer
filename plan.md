@@ -213,8 +213,6 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 **✅ Phase 4.5 COMPLETE**
 
-
-
 ## Phase 5 — Text Layer (Selection & Copy)
 
 **Goal:** Text in PDFs is selectable and copyable.
@@ -316,7 +314,6 @@ Playwright can load the `webview.html` as a static page in a real browser, injec
 
 **✅ Phase 5.9 COMPLETE**
 
-
 ---
 
 ## Phase 6 — In-Document Search
@@ -398,10 +395,8 @@ Playwright can load the `webview.html` as a static page in a real browser, injec
 
 Track these as GitHub issues; do not start until v0.1.0 is stable:
 
-| Phase  | Feature                      | Notes                                                      |
-| ------ | ---------------------------- | ---------------------------------------------------------- |
-| v0.2.0 | Thumbnail panel              | Side panel showing page thumbnails for quick nav           |
-| v0.2.0 | Outline / bookmarks          | PDF.js `getOutline()` to show in a Tree View               |
-| v0.3.0 | Password-protected PDFs      | `getDocument({ password })` + VS Code input prompt         |
-| v0.4.0 | Annotation display           | Read-only rendering of existing PDF annotations via PDF.js |
-| v1.0.0 | Stability + telemetry review | Production hardening before "v1" label                     |
+| Phase  | Feature                 | Notes                                              |
+| ------ | ----------------------- | -------------------------------------------------- |
+| v0.2.0 | Thumbnail panel         | Side panel showing page thumbnails for quick nav   |
+| v0.2.0 | Outline / bookmarks     | PDF.js `getOutline()` to show in a Tree View       |
+| v0.3.0 | Password-protected PDFs | `getDocument({ password })` + VS Code input prompt |
