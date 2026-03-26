@@ -139,6 +139,8 @@ class SafePdfEditorProvider {
 			nonce,
 		);
 
+		const disposables = [];
+
 		// Wait for webview to signal it is ready, then send initialization data
 		webviewPanel.webview.onDidReceiveMessage(
 			(message) => {
@@ -152,8 +154,17 @@ class SafePdfEditorProvider {
 				// Future: handle "pageChanged", "error", etc.
 			},
 			null,
-			this._context.subscriptions,
+			disposables,
 		);
+
+		webviewPanel.onDidDispose(() => {
+			while (disposables.length) {
+				const x = disposables.pop();
+				if (x) {
+					x.dispose();
+				}
+			}
+		});
 	}
 
 	/**

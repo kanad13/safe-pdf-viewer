@@ -396,6 +396,17 @@
 
 		// Signal to extension host that webview is ready to receive init
 		vscode.postMessage({ type: "ready" });
+
+		// Clean up PDF.js resources when the webview is unloaded
+		window.addEventListener("pagehide", () => {
+			if (renderTask) {
+				renderTask.cancel();
+			}
+			if (pdfDoc) {
+				pdfDoc.destroy();
+				pdfDoc = null;
+			}
+		});
 	</script>
 </body>
 

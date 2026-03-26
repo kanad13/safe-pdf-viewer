@@ -159,6 +159,7 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 **Branch:** `feat/theme-polish`
 
 > **Seed discovery:** Most Phase 4 work is already done in the seed:
+>
 > - All CSS uses `var(--vscode-*)` tokens (only `#pdf-canvas` background is `#fff`, correct)
 > - All toolbar buttons have `aria-label` and `title` attributes
 > - Toolbar separators (`<div class="toolbar-sep">`) are already present
@@ -189,7 +190,6 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ---
 
-
 ---
 
 ## Phase 4.5 — Resource & Memory Cleanup
@@ -200,12 +200,13 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ### Tasks
 
-- [ ] In `src/extension.js`, inside `resolveCustomEditor`, listen for `webviewPanel.onDidDispose`
-- [ ] Post a message to `webview.html` (e.g., `{ type: "dispose" }`) before the panel is fully destroyed to call `pdfDoc.destroy()` (if possible based on timings)
-- [ ] Alternatively, handle proper disposal of `PDF.js` within the webview's `unload` or `pagehide` equivalent
-- [ ] Ensure any unresolved promises or workers are cleanly terminated
+- [x] In `src/extension.js`, inside `resolveCustomEditor`, listen for `webviewPanel.onDidDispose`
+- [x] Post a message to `webview.html` (e.g., `{ type: "dispose" }`) before the panel is fully destroyed to call `pdfDoc.destroy()` (if possible based on timings)
+- [x] Alternatively, handle proper disposal of `PDF.js` within the webview's `unload` or `pagehide` equivalent
+- [x] Ensure any unresolved promises or workers are cleanly terminated
 
 ### Exit Gate
+
 - `npm test` passes
 - Memory verification: opening/closing many PDFs doesn't leak memory in Activity Monitor
 - Commit and merge: `feat: resource cleanup`
@@ -318,10 +319,10 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 Track these as GitHub issues; do not start until v0.1.0 is stable:
 
-| Phase | Feature | Notes |
-|---|---|---|
-| v0.2.0 | Thumbnail panel | Side panel showing page thumbnails for quick nav |
-| v0.2.0 | Outline / bookmarks | PDF.js `getOutline()` to show in a Tree View |
-| v0.3.0 | Password-protected PDFs | `getDocument({ password })` + VS Code input prompt |
-| v0.4.0 | Annotation display | Read-only rendering of existing PDF annotations via PDF.js |
-| v1.0.0 | Stability + telemetry review | Production hardening before "v1" label |
+| Phase  | Feature                      | Notes                                                      |
+| ------ | ---------------------------- | ---------------------------------------------------------- |
+| v0.2.0 | Thumbnail panel              | Side panel showing page thumbnails for quick nav           |
+| v0.2.0 | Outline / bookmarks          | PDF.js `getOutline()` to show in a Tree View               |
+| v0.3.0 | Password-protected PDFs      | `getDocument({ password })` + VS Code input prompt         |
+| v0.4.0 | Annotation display           | Read-only rendering of existing PDF annotations via PDF.js |
+| v1.0.0 | Stability + telemetry review | Production hardening before "v1" label                     |
