@@ -213,6 +213,8 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 **✅ Phase 4.5 COMPLETE**
 
+
+
 ## Phase 5 — Text Layer (Selection & Copy)
 
 **Goal:** Text in PDFs is selectable and copyable.
@@ -299,18 +301,21 @@ Playwright can load the `webview.html` as a static page in a real browser, injec
 
 ### Tasks
 
-- [ ] `npm install --save-dev @playwright/test` and add `npx playwright install chromium` step to CI
-- [ ] Create `test/e2e/fixtures/` with `vscode-api-shim.js` (mock `acquireVsCodeApi`)
-- [ ] Create `playwright.config.js` at repo root
-- [ ] Write the four spec files listed above
-- [ ] Add `"test:e2e": "playwright test"` script to `package.json`
-- [ ] Add `.playwright/` and `test-results/` to `.gitignore`
+- [x] `npm install --save-dev @playwright/test` and add `npx playwright install chromium` step to CI
+- [x] Create `test/e2e/fixtures/` with `vscode-api-shim.js` (mock `acquireVsCodeApi`)
+- [x] Create `playwright.config.js` at repo root
+- [x] Write the four spec files listed above
+- [x] Add `\"test:e2e\": \"playwright test\"` script to `package.json`
+- [x] Add `.playwright/` and `test-results/` to `.gitignore`
 
 ### Exit Gate
 
-- [ ] `npm run test:e2e` passes — all four specs green in headless Chromium
-- [ ] `npm test` still passes (Node unit tests unaffected)
-- [ ] Commit and merge: `test: add Playwright e2e suite for webview rendering`
+- [x] `npm run test:e2e` passes — all four specs green in headless Chromium
+- [x] `npm test` still passes (Node unit tests unaffected)
+- [x] Commit and merge: `test: add Playwright e2e suite for webview rendering`
+
+**✅ Phase 5.9 COMPLETE**
+
 
 ---
 
