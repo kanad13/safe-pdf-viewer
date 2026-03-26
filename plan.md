@@ -219,11 +219,11 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ### Tasks
 
-- [ ] After rendering each page canvas, call `page.getTextContent()` and render a PDF.js text layer
-- [ ] Position text layer `<div>` absolutely over the canvas at the same size/offset
-- [ ] Set text layer `user-select: text` (canvas itself stays `user-select: none`)
-- [ ] Re-render text layer on zoom change and page change
-- [ ] Ensure CSP is not broken (text layer uses no new external resources)
+- [x] After rendering each page canvas, call `page.getTextContent()` and render a PDF.js text layer
+- [x] Position text layer `<div>` absolutely over the canvas at the same size/offset
+- [x] Set text layer `user-select: text` (canvas itself stays `user-select: none`)
+- [x] Re-render text layer on zoom change and page change
+- [x] Ensure CSP is not broken (text layer uses no new external resources)
 
 ### Manual Tests
 

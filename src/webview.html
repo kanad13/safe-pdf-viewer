@@ -113,11 +113,58 @@
 			background: var(--vscode-editor-background);
 		}
 
+		.page-container {
+			position: relative;
+			display: inline-block;
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+			background: #fff; /* PDF page background is always white */
+			margin: 0 auto;
+		}
+
 		#pdf-canvas {
 			display: block;
-			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-			background: #fff;
-			/* PDF page background is always white */
+			user-select: none;
+			-webkit-user-select: none;
+		}
+
+		/* ── Text Layer ───────────────────────────────────────── */
+
+		.textLayer {
+			position: absolute;
+			left: 0;
+			top: 0;
+			right: 0;
+			bottom: 0;
+			overflow: hidden;
+			line-height: 1;
+			text-size-adjust: none;
+			forced-color-adjust: none;
+			transform-origin: 0 0;
+			z-index: 2;
+			user-select: text;
+			-webkit-user-select: text;
+		}
+
+		.textLayer span,
+		.textLayer br {
+			color: transparent;
+			position: absolute;
+			white-space: pre;
+			cursor: text;
+			transform-origin: 0% 0%;
+		}
+
+		/* Required for some dynamic CSS calc() in PDF.js TextLayer */
+		.textLayer {
+			--scale-factor: 1;
+			--total-scale-factor: var(--scale-factor);
+			--scale-round-x: 1px;
+			--scale-round-y: 1px;
+		}
+
+		.textLayer ::selection {
+			background: rgba(0, 0, 255, 0.25);
+			color: transparent;
 		}
 
 		/* ── Empty / error state ──────────────────────────────── */
@@ -162,7 +209,10 @@
 
 	<!-- PDF canvas viewport -->
 	<div class="viewport" id="viewport">
-		<canvas id="pdf-canvas"></canvas>
+		<div class="page-container" id="page-container">
+			<canvas id="pdf-canvas"></canvas>
+			<div id="text-layer" class="textLayer"></div>
+		</div>
 	</div>
 
 	<script type="module" nonce="{{NONCE}}">
@@ -178,10 +228,13 @@
 		let currentPage = 1;
 		let currentZoom = "{{DEFAULT_ZOOM}}";
 		let renderTask = null;   // Track in-flight renders to cancel on nav
+		let activeTextLayer = null; // Track instances of PDF.js TextLayer
 
 		const canvas = document.getElementById("pdf-canvas");
 		const ctx = canvas.getContext("2d");
 		const viewport = document.getElementById("viewport");
+		const pageContainer = document.getElementById("page-container");
+		const textLayerDiv = document.getElementById("text-layer");
 		const btnPrev = document.getElementById("btn-prev");
 		const btnNext = document.getElementById("btn-next");
 		const pageInput = document.getElementById("page-input");
@@ -223,6 +276,13 @@
 				renderTask.cancel();
 				renderTask = null;
 			}
+			if (activeTextLayer) {
+				activeTextLayer.cancel();
+				activeTextLayer = null;
+			}
+
+			// Clear text layer DOM
+			textLayerDiv.innerHTML = "";
 
 			const page = await pdfDoc.getPage(pageNum);
 			const scale = await computeScale(page);
@@ -240,6 +300,15 @@
 				? [outputScale, 0, 0, outputScale, 0, 0]
 				: null;
 
+			// Sync text layer boundaries and scale custom properties
+			textLayerDiv.style.width = Math.floor(pv.width) + "px";
+			textLayerDiv.style.height = Math.floor(pv.height) + "px";
+			textLayerDiv.style.setProperty("--scale-factor", scale);
+			
+			// We handle box-shadow on the page wrapper
+			pageContainer.style.width = Math.floor(pv.width) + "px";
+			pageContainer.style.height = Math.floor(pv.height) + "px";
+
 			renderTask = page.render({ 
 				canvasContext: ctx, 
 				transform: transform,
@@ -247,8 +316,18 @@
 			});
 			try {
 				await renderTask.promise;
+
+				// Render Text Layer
+				if (page.streamTextContent) {
+					activeTextLayer = new pdfjsLib.TextLayer({
+						textContentSource: page.streamTextContent(),
+						container: textLayerDiv,
+						viewport: pv,
+					});
+					await activeTextLayer.render();
+				}
 			} catch (err) {
-				if (err?.name !== "RenderingCancelledException") {
+				if (err?.name !== "RenderingCancelledException" && err?.name !== "AbortException") {
 					console.error("PDF render error:", err);
 					showStatus("Failed to render page " + pageNum);
 				}
@@ -269,7 +348,7 @@
 		}
 
 		function showStatus(msg) {
-			canvas.style.display = "none";
+			pageContainer.style.display = "none";
 			let s = document.querySelector(".status-message");
 			if (!s) {
 				s = document.createElement("div");
@@ -385,7 +464,7 @@
 				});
 				try {
 					pdfDoc = await loadingTask.promise;
-					canvas.style.display = "block";
+					pageContainer.style.display = "inline-block";
 					await renderPage(1);
 				} catch (err) {
 					console.error("PDF load error:", err);
@@ -401,6 +480,9 @@
 		window.addEventListener("pagehide", () => {
 			if (renderTask) {
 				renderTask.cancel();
+			}
+			if (activeTextLayer) {
+				activeTextLayer.cancel();
 			}
 			if (pdfDoc) {
 				pdfDoc.destroy();
