@@ -1,0 +1,17 @@
+.vscode/**
+.vscode-test/**
+node_modules/**
+test/**
+docs/**
+examples/**
+plan.md
+CLAUDE.md
+REUSE_ANALYSIS.md
+.gitignore
+.eslintignore
+eslint.config.js
+jsconfig.json
+**/.DS_Store
+
+# Exclude PDF.js source maps (keep only the .mjs bundles)
+lib/pdfjs/*.map

@@ -1,0 +1,183 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+3 0 obj
+<< /Length 497 >>
+stream
+BT
+/F2 16 Tf
+50 780 Td
+(Page 1: Text Content) Tj
+ET
+BT
+/F1 11 Tf
+50 750 Td
+14 TL
+(Safe PDF Viewer - Test Document) Tj T*
+() Tj T*
+(This document verifies that the Safe PDF Viewer) Tj T*
+(VS Code extension renders PDF files correctly.) Tj T*
+() Tj T*
+(Features tested on this page:) Tj T*
+(  - Multi-line text rendering) Tj T*
+(  - Font embedding \(Helvetica built-in\)) Tj T*
+(  - Page margins and layout) Tj T*
+ET
+0.80 g
+50 50 495 90 re f
+0 g
+BT /F1 9 Tf 55 105 Td ([ figure / image area ]) Tj ET
+endstream
+endobj
+4 0 obj
+<< /Length 548 >>
+stream
+BT
+/F2 16 Tf
+50 780 Td
+(Page 2: Lorem Ipsum) Tj
+ET
+BT
+/F1 11 Tf
+50 750 Td
+14 TL
+(Lorem ipsum dolor sit amet, consectetur adipiscing elit.) Tj T*
+(Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.) Tj T*
+() Tj T*
+(Ut enim ad minim veniam, quis nostrud exercitation ullamco) Tj T*
+(laboris nisi ut aliquip ex ea commodo consequat.) Tj T*
+() Tj T*
+(Duis aute irure dolor in reprehenderit in voluptate velit esse) Tj T*
+(cillum dolore eu fugiat nulla pariatur.) Tj T*
+() Tj T*
+(Excepteur sint occaecat cupidatat non proident.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Length 699 >>
+stream
+BT
+/F2 16 Tf
+50 780 Td
+(Page 3: Simulated Table) Tj
+ET
+BT
+/F1 11 Tf
+50 750 Td
+14 TL
+(Security Invariant      Value       Notes) Tj T*
+(-----------------------------------------------) Tj T*
+(isEvalSupported         false       Disables PDF JS) Tj T*
+(localResourceRoots      scoped      lib/pdfjs + PDF dir) Tj T*
+(default-src             none        Strict CSP) Tj T*
+(script-src              nonce       No external origins) Tj T*
+(CSP nonce               32 chars    Random alphanumeric) Tj T*
+(-----------------------------------------------) Tj T*
+(All security invariants enforced at extension layer.) Tj T*
+ET
+0.80 g
+50 50 495 90 re f
+0 g
+BT /F1 9 Tf 55 105 Td ([ figure / image area ]) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Length 465 >>
+stream
+BT
+/F2 16 Tf
+50 780 Td
+(Page 4: Architecture Overview) Tj
+ET
+BT
+/F1 11 Tf
+50 750 Td
+14 TL
+(Architecture overview:) Tj T*
+() Tj T*
+(  VS Code --- SafePdfEditorProvider) Tj T*
+(       |              |) Tj T*
+(  CustomDocument    WebviewPanel) Tj T*
+(       |              |) Tj T*
+(  URI \(read-only\)   HTML + PDF.js) Tj T*
+(                      |) Tj T*
+(                   Canvas render) Tj T*
+() Tj T*
+(No TypeScript. No bundler. No CDN. Pure CommonJS.) Tj T*
+ET
+endstream
+endobj
+7 0 obj
+<< /Length 447 >>
+stream
+BT
+/F2 16 Tf
+50 780 Td
+(Page 5: Final Page) Tj
+ET
+BT
+/F1 11 Tf
+50 750 Td
+14 TL
+(This is the final test page \(page 5 of 5\).) Tj T*
+() Tj T*
+(Navigation tests:) Tj T*
+(  - Prev/Next buttons work between all pages) Tj T*
+(  - Keyboard ArrowLeft/Right navigates pages) Tj T*
+(  - PageUp/PageDown navigates pages) Tj T*
+(  - First page: Prev button disabled) Tj T*
+(  - Last page: Next button disabled) Tj T*
+() Tj T*
+(End of test document.) Tj T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Pages /Kids [9 0 R 10 0 R 11 0 R 12 0 R 13 0 R] /Count 5 >>
+endobj
+9 0 obj
+<< /Type /Page /Parent 8 0 R /MediaBox [0 0 595 842] /Contents 3 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> >>
+endobj
+10 0 obj
+<< /Type /Page /Parent 8 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> >>
+endobj
+11 0 obj
+<< /Type /Page /Parent 8 0 R /MediaBox [0 0 595 842] /Contents 5 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> >>
+endobj
+12 0 obj
+<< /Type /Page /Parent 8 0 R /MediaBox [0 0 595 842] /Contents 6 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> >>
+endobj
+13 0 obj
+<< /Type /Page /Parent 8 0 R /MediaBox [0 0 595 842] /Contents 7 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> >>
+endobj
+14 0 obj
+<< /Type /Catalog /Pages 8 0 R >>
+endobj
+xref
+0 15
+0000000000 65535 f 
+0000000015 00000 n 
+0000000112 00000 n 
+0000000214 00000 n 
+0000000762 00000 n 
+0000001361 00000 n 
+0000002111 00000 n 
+0000002627 00000 n 
+0000003125 00000 n 
+0000003210 00000 n 
+0000003346 00000 n 
+0000003483 00000 n 
+0000003620 00000 n 
+0000003757 00000 n 
+0000003894 00000 n 
+trailer
+<< /Size 15 /Root 14 0 R >>
+startxref
+3944
+%%EOF
