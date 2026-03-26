@@ -35,7 +35,7 @@ require.cache["vscode"] = {
 	}
 };
 
-const { getNonce, getDefaultZoom } = require("../src/extension");
+const { getNonce, getDefaultZoom, getWebviewContent } = require("../src/extension");
 
 // ── getNonce ───────────────────────────────────────────────────────────────────
 
@@ -71,8 +71,60 @@ describe("getDefaultZoom", () => {
 	});
 });
 
+// ── getWebviewContent ──────────────────────────────────────────────────────────
+
+describe("getWebviewContent", () => {
+
+	// Stub panel: asWebviewUri simply prefixes the URI toString() with a fake scheme
+	const stubPanel = {
+		webview: {
+			asWebviewUri: (uri) => ({ toString: () => `vscode-resource:${uri.toString()}` }),
+		},
+	};
+	const stubExtensionUri = { fsPath: "/stub/ext", toString: () => "/stub/ext" };
+	const stubPdfUri       = { fsPath: "/stub/test.pdf", toString: () => "/stub/test.pdf" };
+	const stubNonce        = "A".repeat(32);
+
+	/** Helper — call once, reuse output across assertions in a single test. */
+	function render() {
+		return getWebviewContent(stubPanel, stubPdfUri, stubExtensionUri, stubNonce);
+	}
+
+	it("replaces {{NONCE}} with the provided nonce value", () => {
+		const html = render();
+		assert.ok(!html.includes("{{NONCE}}"), "{{NONCE}} token still present in output");
+		assert.ok(html.includes(stubNonce), "nonce value not found in output");
+	});
+
+	it("replaces {{PDFJS_URI}} token", () => {
+		assert.ok(!render().includes("{{PDFJS_URI}}"), "{{PDFJS_URI}} token still present");
+	});
+
+	it("replaces {{WORKER_URI}} token", () => {
+		assert.ok(!render().includes("{{WORKER_URI}}"), "{{WORKER_URI}} token still present");
+	});
+
+	it("replaces {{DEFAULT_ZOOM}} token", () => {
+		assert.ok(!render().includes("{{DEFAULT_ZOOM}}"), "{{DEFAULT_ZOOM}} token still present");
+	});
+
+	it("leaves no unresolved {{...}} tokens in output", () => {
+		assert.doesNotMatch(render(), /\{\{[A-Z_]+\}\}/,
+			"Output still contains unresolved template tokens");
+	});
+
+	it("CSP script-src contains nonce-<value>", () => {
+		assert.ok(render().includes(`nonce-${stubNonce}`),
+			"CSP nonce attribute not found in output");
+	});
+
+	it("CSP contains default-src 'none'", () => {
+		assert.ok(render().includes("default-src 'none'"),
+			"CSP default-src 'none' not found in output");
+	});
+});
+
 // ── Integration smoke tests (no webview) ──────────────────────────────────────
-// These test that activate/deactivate do not throw when called with a stub context.
 // They do NOT test rendering — that requires the VS Code Extension Host.
 
 describe("extension lifecycle", () => {

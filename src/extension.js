@@ -191,4 +191,5 @@ module.exports = {
 	deactivate,
 	getNonce,
 	getDefaultZoom,
+	getWebviewContent,
 };
