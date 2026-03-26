@@ -106,18 +106,19 @@
 		.viewport {
 			flex: 1;
 			overflow: auto;
-			display: flex;
-			justify-content: center;
-			align-items: flex-start;
 			padding: 16px;
 			background: var(--vscode-editor-background);
+			/* Not using flex centering: justify-content:center + overflow:auto
+			   clips the left edge at high zoom — the left side becomes unreachable.
+			   Centering is handled by margin:0 auto on .page-container instead. */
 		}
 
 		.page-container {
 			position: relative;
-			display: inline-block;
+			display: block;
 			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-			background: #fff; /* PDF page background is always white */
+			background: #fff;
+			/* PDF page background is always white */
 			margin: 0 auto;
 		}
 
@@ -256,7 +257,7 @@
 			const unscaledVp = pdfPage.getViewport({ scale: 1 });
 			const availW = Math.max(1, viewport.clientWidth - 32);  // 16px padding each side
 			const availH = Math.max(1, viewport.clientHeight - 32);
-			
+
 			if (currentZoom === "fit-width") {
 				return availW / unscaledVp.width;
 			}
@@ -290,7 +291,7 @@
 
 			// Multiplier for High DPI (Retina) screens
 			const outputScale = window.devicePixelRatio || 1;
-			
+
 			canvas.width = Math.floor(pv.width * outputScale);
 			canvas.height = Math.floor(pv.height * outputScale);
 			canvas.style.width = Math.floor(pv.width) + "px";
@@ -304,15 +305,15 @@
 			textLayerDiv.style.width = Math.floor(pv.width) + "px";
 			textLayerDiv.style.height = Math.floor(pv.height) + "px";
 			textLayerDiv.style.setProperty("--scale-factor", scale);
-			
+
 			// We handle box-shadow on the page wrapper
 			pageContainer.style.width = Math.floor(pv.width) + "px";
 			pageContainer.style.height = Math.floor(pv.height) + "px";
 
-			renderTask = page.render({ 
-				canvasContext: ctx, 
+			renderTask = page.render({
+				canvasContext: ctx,
 				transform: transform,
-				viewport: pv 
+				viewport: pv
 			});
 			try {
 				await renderTask.promise;
@@ -442,7 +443,7 @@
 
 		const vscode = acquireVsCodeApi();
 
-		
+
 		// Resize listener to re-render if fitting to width/page
 		let resizeTimeout = null;
 		window.addEventListener("resize", () => {

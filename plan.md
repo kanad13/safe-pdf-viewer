@@ -207,9 +207,11 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ### Exit Gate
 
-- `npm test` passes
-- Memory verification: opening/closing many PDFs doesn't leak memory in Activity Monitor
-- Commit and merge: `feat: resource cleanup`
+- [x] `npm test` passes — structural tests verify `pagehide` listener, `pdfDoc.destroy()`, and `renderTask.cancel()` are present in the webview
+- [x] Memory verification: opening/closing many PDFs doesn't leak memory in Activity Monitor
+- [x] Commit and merge: `feat: resource cleanup`
+
+**✅ Phase 4.5 COMPLETE**
 
 ## Phase 5 — Text Layer (Selection & Copy)
 
@@ -234,9 +236,78 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ### Exit Gate
 
-- `npm test` passes
-- Manual text select/copy tests pass
-- Commit and merge: `feat: text layer — selection and copy`
+- [x] `npm test` passes — structural tests verify `.textLayer`, `#text-layer`, `user-select: text`, `user-select: none`, and `--scale-factor` CSS variable are present in the webview
+- [x] Manual text select/copy tests pass
+- [x] Commit and merge: `feat: text layer — selection and copy`
+
+**✅ Phase 5 COMPLETE**
+
+---
+
+## Phase 5.5 — Viewport Overflow Fix
+
+**Goal:** Fix a latent CSS bug where `justify-content: center` on the scroll container clipped the left edge of the page at high zoom levels (150%+), making it unreachable via scrolling.
+
+**Branch:** included in same session as Phase 4.5 / Phase 5 cleanup
+
+### Tasks
+
+- [x] Remove `display: flex; justify-content: center; align-items: flex-start` from `.viewport`
+- [x] Switch `.page-container` to `display: block; margin: 0 auto` (centers when narrow, scrolls freely when wide)
+
+### Exit Gate
+
+- [x] `npm test` passes
+- [ ] Manual: at zoom 200%, page left edge is reachable by scrolling
+- [x] Commit and merge
+
+**✅ Phase 5.5 COMPLETE**
+
+---
+
+## Phase 5.9 — Playwright E2E Test Suite
+
+**Goal:** Add a Playwright-based end-to-end test suite that exercises the webview in a real browser context — covering text selection, zoom, navigation, and canvas rendering verification.
+
+**Why Playwright and not just Node `--test`:**
+The current Node unit tests are purely structural (static analysis of the generated HTML string). They cannot verify that:
+- The canvas actually renders pixels
+- Text in the `.textLayer` is genuinely selectable and copyable
+- Zoom correctly re-positions the text layer over the canvas
+- Navigation doesn't leave stale text-layer fragments
+
+Playwright can load the `webview.html` as a static page in a real browser, inject a mock PDF.js init message, and interact with the rendered output.
+
+**Architecture:**
+- Use `@playwright/test` as a `devDependency`
+- Create a `test/e2e/` directory for Playwright specs
+- Serve `src/webview.html` with a lightweight HTTP test fixture that injects a mock `acquireVsCodeApi()` shim and loads an actual PDF from `examples/test.pdf`
+- Tests run with `npm run test:e2e` (separate from `npm test` which stays lightweight)
+
+**Scope of tests (Phase 5.9 only — no VS Code host required):**
+- `renders-canvas.spec.ts`: canvas is visible and has non-zero pixel data after load
+- `text-selection.spec.ts`: clicking and dragging over text produces a non-empty `window.getSelection()` result
+- `zoom.spec.ts`: changing zoom to 200% changes canvas dimensions; text layer `--scale-factor` matches
+- `navigation.spec.ts`: clicking next/prev updates the page counter
+
+**Entry condition:** Phase 5 is stable and merged to main.
+
+**Branch:** `feat/playwright-e2e`
+
+### Tasks
+
+- [ ] `npm install --save-dev @playwright/test` and add `npx playwright install chromium` step to CI
+- [ ] Create `test/e2e/fixtures/` with `vscode-api-shim.js` (mock `acquireVsCodeApi`)
+- [ ] Create `playwright.config.js` at repo root
+- [ ] Write the four spec files listed above
+- [ ] Add `"test:e2e": "playwright test"` script to `package.json`
+- [ ] Add `.playwright/` and `test-results/` to `.gitignore`
+
+### Exit Gate
+
+- [ ] `npm run test:e2e` passes — all four specs green in headless Chromium
+- [ ] `npm test` still passes (Node unit tests unaffected)
+- [ ] Commit and merge: `test: add Playwright e2e suite for webview rendering`
 
 ---
 

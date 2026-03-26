@@ -183,12 +183,66 @@ describe("getWebviewContent", () => {
 			"CSP default-src 'none' not found in output",
 		);
 	});
-});
 
-// ── Integration smoke tests (no webview) ──────────────────────────────────────
-// They do NOT test rendering — that requires the VS Code Extension Host.
+	// ── Phase 4.5 — Memory cleanup ─────────────────────────────────────────
 
-describe("extension lifecycle", () => {
+	it("webview cleans up on pagehide (pdfDoc.destroy called)", () => {
+		const html = render();
+		assert.ok(
+			html.includes("pagehide"),
+			"pagehide listener not found in webview HTML",
+		);
+		assert.ok(
+			html.includes("pdfDoc.destroy()"),
+			"pdfDoc.destroy() call not found in webview HTML",
+		);
+	});
+
+	it("webview cancels in-flight render task on pagehide", () => {
+		assert.ok(
+			render().includes("renderTask.cancel()"),
+			"renderTask.cancel() not found in pagehide cleanup",
+		);
+	});
+
+	// ── Phase 5 — Text layer structure ────────────────────────────────────
+
+	it("webview HTML contains #text-layer div overlay", () => {
+		assert.ok(
+			render().includes("id=\"text-layer\""),
+			"#text-layer div not found in webview HTML",
+		);
+	});
+
+	it("webview HTML contains .textLayer CSS class", () => {
+		assert.ok(
+			render().includes(".textLayer"),
+			".textLayer CSS class not found in webview HTML",
+		);
+	});
+
+	it("text layer has user-select: text (selectable)", () => {
+		const html = render();
+		// Must contain user-select: text inside the .textLayer block
+		assert.ok(
+			html.includes("user-select: text"),
+			"text layer is missing user-select: text",
+		);
+	});
+
+	it("canvas has user-select: none (not directly selectable)", () => {
+		assert.ok(
+			render().includes("user-select: none"),
+			"canvas is missing user-select: none",
+		);
+	});
+
+	it("text layer declares --scale-factor CSS variable", () => {
+		assert.ok(
+			render().includes("--scale-factor"),
+			"--scale-factor CSS variable not found — TextLayer scaling will break",
+		);
+	});
 	const { activate, deactivate } = require("../src/extension");
 
 	it("activate does not throw with a stub context", () => {
