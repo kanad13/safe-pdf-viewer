@@ -5,15 +5,18 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<!--
 		CSP notes:
-		- script-src: nonce only — no external origins, no unsafe-eval
-		- worker-src blob: — PDF.js web worker is created via URL.createObjectURL
+		- script-src: nonce + strict-dynamic — nonce covers the inline module; strict-dynamic
+		  propagates trust to ES module imports (pdf.mjs) loaded by the nonced script
+		- worker-src: blob: for fallback + CSP_SOURCE for the vscode-resource worker URL
+		- connect-src: CSP_SOURCE so PDF.js can fetch the PDF file via fetch()
 		- img-src: data: for PDF-embedded images rendered via canvas
 		- style-src unsafe-inline: VS Code CSS variables require inline styles
 	-->
 	<meta http-equiv="Content-Security-Policy" content="
 		default-src 'none';
-		script-src 'nonce-{{NONCE}}';
-		worker-src blob:;
+		script-src 'nonce-{{NONCE}}' 'strict-dynamic';
+		worker-src blob: {{CSP_SOURCE}};
+		connect-src {{CSP_SOURCE}};
 		style-src 'unsafe-inline';
 		img-src data:;
 	">

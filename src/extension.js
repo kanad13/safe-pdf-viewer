@@ -38,6 +38,7 @@ function getDefaultZoom() {
  *
  * Token map:
  *   {{NONCE}}        → CSP nonce
+ *   {{CSP_SOURCE}}   → webview.cspSource (allowed origin for scripts/workers/fetch)
  *   {{PDF_URI}}      → webview-safe URI for the PDF file
  *   {{PDFJS_URI}}    → webview-safe URI for lib/pdfjs/pdf.mjs
  *   {{WORKER_URI}}   → webview-safe URI for lib/pdfjs/pdf.worker.mjs
@@ -63,11 +64,13 @@ function getWebviewContent(panel, pdfFileUri, extensionUri, nonce) {
 		)
 		.toString();
 	const defaultZoom = getDefaultZoom();
+	const cspSource = panel.webview.cspSource;
 
 	const templatePath = path.join(__dirname, "webview.html");
 	let html = fs.readFileSync(templatePath, "utf8");
 
 	html = html.replace(/\{\{NONCE\}\}/g, nonce);
+	html = html.replace(/\{\{CSP_SOURCE\}\}/g, cspSource);
 	html = html.replace("{{PDF_URI}}", pdfUri);
 	html = html.replace("{{PDFJS_URI}}", pdfjsUri);
 	html = html.replace("{{WORKER_URI}}", workerUri);

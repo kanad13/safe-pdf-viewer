@@ -13,12 +13,14 @@ Module._resolveFilename = function (request, ...args) {
 	return originalResolve.call(this, request, ...args);
 };
 require.cache["vscode"] = {
-	id: "vscode", filename: "vscode", loaded: true,
+	id: "vscode",
+	filename: "vscode",
+	loaded: true,
 	exports: {
 		workspace: {
 			getConfiguration: () => ({ get: (_key, defaultVal) => defaultVal }),
-			onDidChangeTextDocument:   () => ({ dispose() {} }),
-			onDidChangeConfiguration:  () => ({ dispose() {} }),
+			onDidChangeTextDocument: () => ({ dispose() {} }),
+			onDidChangeConfiguration: () => ({ dispose() {} }),
 		},
 		window: {
 			activeColorTheme: { kind: 1 },
@@ -29,18 +31,24 @@ require.cache["vscode"] = {
 		ColorThemeKind: { Light: 1, Dark: 2, HighContrast: 3 },
 		ViewColumn: { Beside: 2 },
 		Uri: {
-			joinPath: (...args) => ({ fsPath: args.join("/"), toString: () => args.join("/") }),
+			joinPath: (...args) => ({
+				fsPath: args.join("/"),
+				toString: () => args.join("/"),
+			}),
 			file: (p) => ({ fsPath: p, toString: () => p }),
 		},
-	}
+	},
 };
 
-const { getNonce, getDefaultZoom, getWebviewContent } = require("../src/extension");
+const {
+	getNonce,
+	getDefaultZoom,
+	getWebviewContent,
+} = require("../src/extension");
 
 // ── getNonce ───────────────────────────────────────────────────────────────────
 
 describe("getNonce", () => {
-
 	it("returns a 32-character string", () => {
 		assert.equal(getNonce().length, 32);
 	});
@@ -58,7 +66,6 @@ describe("getNonce", () => {
 // ── getDefaultZoom ─────────────────────────────────────────────────────────────
 
 describe("getDefaultZoom", () => {
-
 	it("returns a non-empty string", () => {
 		const zoom = getDefaultZoom();
 		assert.ok(typeof zoom === "string" && zoom.length > 0);
@@ -66,7 +73,16 @@ describe("getDefaultZoom", () => {
 
 	it("returns a recognized zoom value when config is not set", () => {
 		// Stub returns the defaultVal we pass → "fit-width"
-		const validValues = ["fit-width", "fit-page", "50", "75", "100", "125", "150", "200"];
+		const validValues = [
+			"fit-width",
+			"fit-page",
+			"50",
+			"75",
+			"100",
+			"125",
+			"150",
+			"200",
+		];
 		assert.ok(validValues.includes(getDefaultZoom()));
 	});
 });
@@ -74,53 +90,89 @@ describe("getDefaultZoom", () => {
 // ── getWebviewContent ──────────────────────────────────────────────────────────
 
 describe("getWebviewContent", () => {
-
 	// Stub panel: asWebviewUri simply prefixes the URI toString() with a fake scheme
 	const stubPanel = {
 		webview: {
-			asWebviewUri: (uri) => ({ toString: () => `vscode-resource:${uri.toString()}` }),
+			asWebviewUri: (uri) => ({
+				toString: () => `vscode-resource:${uri.toString()}`,
+			}),
+			cspSource: "https://file+.vscode-resource.vscode-cdn.net",
 		},
 	};
 	const stubExtensionUri = { fsPath: "/stub/ext", toString: () => "/stub/ext" };
-	const stubPdfUri       = { fsPath: "/stub/test.pdf", toString: () => "/stub/test.pdf" };
-	const stubNonce        = "A".repeat(32);
+	const stubPdfUri = {
+		fsPath: "/stub/test.pdf",
+		toString: () => "/stub/test.pdf",
+	};
+	const stubNonce = "A".repeat(32);
 
 	/** Helper — call once, reuse output across assertions in a single test. */
 	function render() {
-		return getWebviewContent(stubPanel, stubPdfUri, stubExtensionUri, stubNonce);
+		return getWebviewContent(
+			stubPanel,
+			stubPdfUri,
+			stubExtensionUri,
+			stubNonce,
+		);
 	}
 
 	it("replaces {{NONCE}} with the provided nonce value", () => {
 		const html = render();
-		assert.ok(!html.includes("{{NONCE}}"), "{{NONCE}} token still present in output");
+		assert.ok(
+			!html.includes("{{NONCE}}"),
+			"{{NONCE}} token still present in output",
+		);
 		assert.ok(html.includes(stubNonce), "nonce value not found in output");
 	});
 
 	it("replaces {{PDFJS_URI}} token", () => {
-		assert.ok(!render().includes("{{PDFJS_URI}}"), "{{PDFJS_URI}} token still present");
+		assert.ok(
+			!render().includes("{{PDFJS_URI}}"),
+			"{{PDFJS_URI}} token still present",
+		);
 	});
 
 	it("replaces {{WORKER_URI}} token", () => {
-		assert.ok(!render().includes("{{WORKER_URI}}"), "{{WORKER_URI}} token still present");
+		assert.ok(
+			!render().includes("{{WORKER_URI}}"),
+			"{{WORKER_URI}} token still present",
+		);
 	});
 
 	it("replaces {{DEFAULT_ZOOM}} token", () => {
-		assert.ok(!render().includes("{{DEFAULT_ZOOM}}"), "{{DEFAULT_ZOOM}} token still present");
+		assert.ok(
+			!render().includes("{{DEFAULT_ZOOM}}"),
+			"{{DEFAULT_ZOOM}} token still present",
+		);
+	});
+
+	it("replaces {{CSP_SOURCE}} token", () => {
+		assert.ok(
+			!render().includes("{{CSP_SOURCE}}"),
+			"{{CSP_SOURCE}} token still present",
+		);
 	});
 
 	it("leaves no unresolved {{...}} tokens in output", () => {
-		assert.doesNotMatch(render(), /\{\{[A-Z_]+\}\}/,
-			"Output still contains unresolved template tokens");
+		assert.doesNotMatch(
+			render(),
+			/\{\{[A-Z_]+\}\}/,
+			"Output still contains unresolved template tokens",
+		);
 	});
 
 	it("CSP script-src contains nonce-<value>", () => {
-		assert.ok(render().includes(`nonce-${stubNonce}`),
-			"CSP nonce attribute not found in output");
+		assert.ok(
+			render().includes(`nonce-${stubNonce}`),
+			"CSP nonce attribute not found in output",
+		);
 	});
 
 	it("CSP contains default-src 'none'", () => {
-		assert.ok(render().includes("default-src 'none'"),
-			"CSP default-src 'none' not found in output");
+		assert.ok(
+			render().includes("default-src 'none'"),
+			"CSP default-src 'none' not found in output",
+		);
 	});
 });
 
