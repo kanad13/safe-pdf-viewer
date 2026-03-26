@@ -146,10 +146,10 @@ describe("getWebviewContent", () => {
 		);
 	});
 
-	it("replaces {{CSP}} token (no literal {{CSP}} in output)", () => {
+	it("CSP meta tag is injected into the HTML output", () => {
 		assert.ok(
-			!render().includes("{{CSP}}"),
-			"{{CSP}} token still present in output",
+			render().includes("<meta http-equiv=\"Content-Security-Policy\""),
+			"CSP meta tag not found in output",
 		);
 	});
 
@@ -170,7 +170,9 @@ describe("getWebviewContent", () => {
 
 	it("CSP contains connect-src with the stub cspSource value", () => {
 		assert.ok(
-			render().includes("connect-src https://file+.vscode-resource.vscode-cdn.net"),
+			render().includes(
+				"connect-src https://file+.vscode-resource.vscode-cdn.net",
+			),
 			"connect-src not found with correct cspSource in output",
 		);
 	});

@@ -36,13 +36,15 @@ function getDefaultZoom() {
  * Reads src/webview.html and replaces placeholder tokens with runtime values.
  * Returns an empty-state page when no valid URI is available.
  *
- * Token map:
- *   {{CSP}}          → full Content-Security-Policy value (built from nonce + cspSource)
- *   {{NONCE}}        → CSP nonce (also used on the script tag itself)
+ * Token map (replaced in webview.html at runtime):
+ *   {{NONCE}}        → CSP nonce (on the script tag)
  *   {{PDF_URI}}      → webview-safe URI for the PDF file
  *   {{PDFJS_URI}}    → webview-safe URI for lib/pdfjs/pdf.mjs
  *   {{WORKER_URI}}   → webview-safe URI for lib/pdfjs/pdf.worker.mjs
  *   {{DEFAULT_ZOOM}} → starting zoom value from settings
+ *
+ * CSP is injected by inserting a <meta> tag after the charset meta —
+ * no template token used, avoiding any VS Code webview pre-processing conflicts.
  *
  * @param {vscode.WebviewPanel} panel - The webview panel (needed for asWebviewUri)
  * @param {vscode.Uri} pdfFileUri - The URI of the PDF file to display
@@ -65,7 +67,7 @@ function getWebviewContent(panel, pdfFileUri, extensionUri, nonce) {
 		.toString();
 	const defaultZoom = getDefaultZoom();
 	const cspSource = panel.webview.cspSource;
-	const csp = [
+	const cspContent = [
 		"default-src 'none'",
 		`script-src 'nonce-${nonce}' 'strict-dynamic'`,
 		`worker-src blob: ${cspSource}`,
@@ -73,11 +75,13 @@ function getWebviewContent(panel, pdfFileUri, extensionUri, nonce) {
 		"style-src 'unsafe-inline'",
 		"img-src data:",
 	].join("; ");
+	const cspTag = `<meta http-equiv="Content-Security-Policy" content="${cspContent}">`;
 
 	const templatePath = path.join(__dirname, "webview.html");
 	let html = fs.readFileSync(templatePath, "utf8");
 
-	html = html.replace(/\{\{CSP\}\}/g, csp);
+	// Inject CSP meta tag after the charset declaration (reliable unique anchor)
+	html = html.replace("<meta charset=\"UTF-8\">", `<meta charset="UTF-8">\n\t${cspTag}`);
 	html = html.replace(/\{\{NONCE\}\}/g, nonce);
 	html = html.replace("{{PDF_URI}}", pdfUri);
 	html = html.replace("{{PDFJS_URI}}", pdfjsUri);

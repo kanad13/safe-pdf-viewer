@@ -5,15 +5,10 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<!--
-		CSP is built entirely in extension.js from (nonce, webview.cspSource) and
-		injected as a single {{CSP}} token — no partial tokens here.
-		  script-src: nonce + strict-dynamic (covers ES module imports)
-		  worker-src: blob: + cspSource (covers vscode-resource worker)
-		  connect-src: cspSource (PDF.js fetches the PDF via fetch())
-		  img-src: data: (PDF-embedded images rendered to canvas)
-		  style-src unsafe-inline (VS Code CSS variables need inline styles)
+		CSP is injected by extension.js immediately after the charset meta tag.
+		No template tokens are used for CSP — extension.js inserts the full
+		<meta http-equiv="Content-Security-Policy" ...> element at runtime.
 	-->
-	<meta http-equiv="Content-Security-Policy" content="{{CSP}}">
 	<title>PDF Viewer</title>
 	<style>
 		* {
