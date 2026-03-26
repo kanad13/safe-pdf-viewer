@@ -201,8 +201,9 @@
 
 		async function computeScale(pdfPage) {
 			const unscaledVp = pdfPage.getViewport({ scale: 1 });
-			const availW = viewport.clientWidth - 32;  // 16px padding each side
-			const availH = viewport.clientHeight - 32;
+			const availW = Math.max(1, viewport.clientWidth - 32);  // 16px padding each side
+			const availH = Math.max(1, viewport.clientHeight - 32);
+			
 			if (currentZoom === "fit-width") {
 				return availW / unscaledVp.width;
 			}
@@ -227,10 +228,23 @@
 			const scale = await computeScale(page);
 			const pv = page.getViewport({ scale });
 
-			canvas.width = pv.width;
-			canvas.height = pv.height;
+			// Multiplier for High DPI (Retina) screens
+			const outputScale = window.devicePixelRatio || 1;
+			
+			canvas.width = Math.floor(pv.width * outputScale);
+			canvas.height = Math.floor(pv.height * outputScale);
+			canvas.style.width = Math.floor(pv.width) + "px";
+			canvas.style.height = Math.floor(pv.height) + "px";
 
-			renderTask = page.render({ canvasContext: ctx, viewport: pv });
+			const transform = outputScale !== 1
+				? [outputScale, 0, 0, outputScale, 0, 0]
+				: null;
+
+			renderTask = page.render({ 
+				canvasContext: ctx, 
+				transform: transform,
+				viewport: pv 
+			});
 			try {
 				await renderTask.promise;
 			} catch (err) {
@@ -348,6 +362,18 @@
 		// Mirrors mermaid-slideshow postMessage pattern.
 
 		const vscode = acquireVsCodeApi();
+
+		
+		// Resize listener to re-render if fitting to width/page
+		let resizeTimeout = null;
+		window.addEventListener("resize", () => {
+			if (currentZoom === "fit-width" || currentZoom === "fit-page") {
+				clearTimeout(resizeTimeout);
+				resizeTimeout = setTimeout(() => {
+					if (pdfDoc) renderPage(currentPage);
+				}, 150);
+			}
+		});
 
 		window.addEventListener("message", async (event) => {
 			const message = event.data;

@@ -39,7 +39,9 @@
 				"viewType": "safePdfViewer.pdfEditor",
 				"displayName": "Safe PDF Viewer",
 				"selector": [
-					{ "filenamePattern": "*.pdf" }
+					{
+						"filenamePattern": "*.pdf"
+					}
 				],
 				"priority": "default"
 			}

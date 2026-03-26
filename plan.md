@@ -58,12 +58,12 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ### Tasks
 
-- [ ] Write unit tests for `getWebviewContent()` in `test/extension.test.js`:
+- [x] Write unit tests for `getWebviewContent()` in `test/extension.test.js`:
   - Token replacement works for all five tokens: `{{NONCE}}`, `{{PDF_URI}}`, `{{PDFJS_URI}}`, `{{WORKER_URI}}`, `{{DEFAULT_ZOOM}}`
   - Output contains the nonce value passed in
   - Output does **not** contain any unresolved `{{...}}` tokens
   - Note: `getWebviewContent` depends on the filesystem (reads `src/webview.html`) — stub `panel` and `extensionUri` as needed
-- [ ] Verify CSP header in rendered HTML contains `nonce-<value>` and `default-src 'none'`
+- [x] Verify CSP header in rendered HTML contains `nonce-<value>` and `default-src 'none'`
 
 ### Manual Tests
 
@@ -94,13 +94,11 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ### Tasks
 
-- [ ] Create branch `feat/navigation` from `main`
-- [ ] Manually verify all navigation paths (see Manual Tests below)
-- [ ] Confirm `npm test` still passes (no regressions)
-- [ ] Merge to `main`
-- [ ] Unit tests (no new pure functions to add — nav logic is webview-side):
-  - `getNonce()` — verify still passes
-  - `getDefaultZoom()` — verify still passes
+- [x] Create branch `feat/navigation` from `main`
+- [x] Manually verify all navigation paths
+- [x] Confirm `npm test` still passes
+- [x] Merge to `main`
+- [x] Unit tests pass (getNonce, getDefaultZoom)
 
 ### Manual Tests
 
@@ -133,9 +131,10 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ### Tasks
 
-- [ ] Create branch `feat/zoom` from `main`
-- [ ] Add `window.addEventListener("resize", ...)` in `src/webview.html` — calls `renderPage(currentPage)` only when `currentZoom` is `"fit-width"` or `"fit-page"`; raw handler without debounce (debounce added in Phase 4)
-- [ ] Unit tests: confirm `getDefaultZoom()` returns a value in the allowed enum list (test already exists — verify it still passes)
+- [x] Create branch `feat/zoom` from `main`
+- [x] Add high-DPI scaling (`window.devicePixelRatio`)
+- [x] Add `window.addEventListener("resize", ...)` with debounce
+- [x] Unit tests: confirm `getDefaultZoom()` returns a value in the allowed enum list (test already exists — verify it still passes)
 
 ### Manual Tests
 
@@ -170,13 +169,10 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ### Tasks
 
-- [ ] Create branch `feat/theme-polish` from `main`
-- [ ] Add `onDidChangeActiveColorTheme` listener in `src/extension.js`:
-  - On theme change: regenerate nonce and reset `webviewPanel.webview.html` with fresh content
-  - Wire via `vscode.window.onDidChangeActiveColorTheme`; push disposable to `context.subscriptions`
-  - Note: must handle the case where the panel may have been disposed before the event fires
-- [ ] Replace the raw resize handler in `src/webview.html` with a debounced version (300ms)
-- [ ] No new unit tests required for this phase
+- [x] Create branch `feat/theme-polish` from `main`
+- [x] ~Add `onDidChangeActiveColorTheme` listener~ (Skipped to avoid destroying PDF state—CSS vars automatically handle VS Code themes without reloading HTML)
+- [x] Debounced resize handler (completed during DPI phase)
+- [x] Added polyfills for `getOrInsertComputed` and `withResolvers` for VS Code WebView compatibility.
 
 ### Manual Tests
 
@@ -192,6 +188,27 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 - Commit and merge: `feat: theme-aware chrome, accessibility labels, resize debounce`
 
 ---
+
+
+---
+
+## Phase 4.5 — Resource & Memory Cleanup
+
+**Goal:** Ensure closing PDF tabs completely frees up memory resources.
+
+**Branch:** `feat/memory-cleanup`
+
+### Tasks
+
+- [ ] In `src/extension.js`, inside `resolveCustomEditor`, listen for `webviewPanel.onDidDispose`
+- [ ] Post a message to `webview.html` (e.g., `{ type: "dispose" }`) before the panel is fully destroyed to call `pdfDoc.destroy()` (if possible based on timings)
+- [ ] Alternatively, handle proper disposal of `PDF.js` within the webview's `unload` or `pagehide` equivalent
+- [ ] Ensure any unresolved promises or workers are cleanly terminated
+
+### Exit Gate
+- `npm test` passes
+- Memory verification: opening/closing many PDFs doesn't leak memory in Activity Monitor
+- Commit and merge: `feat: resource cleanup`
 
 ## Phase 5 — Text Layer (Selection & Copy)
 

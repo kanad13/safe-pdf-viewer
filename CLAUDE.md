@@ -28,7 +28,7 @@ This extension opens `.pdf` files in a focused, read-only VS Code webview. Pages
 
 ## Git Commits
 
-Concise, imperative mood. Describe *what changed*. Commit at meaningful intervals.
+Concise, imperative mood. Describe _what changed_. Commit at meaningful intervals.
 
 ## Multi-File Change Protocol
 
@@ -43,9 +43,11 @@ When a task touches 3+ files or requires multiple related edits:
 ## Testing
 
 ### Automated tests
+
 - Run `npm test` — must pass (0 failures, 0 lint errors) before any phase is considered complete
 
 ### Manual testing — preferred method (VSIX install)
+
 End-to-end manual verification uses a locally installed `.vsix`, not F5:
 
 1. `npm run package` — builds `safe-pdf-viewer-*.vsix` in the repo root
@@ -57,6 +59,7 @@ End-to-end manual verification uses a locally installed `.vsix`, not F5:
 Test file at `examples/test.pdf` — 5-page PDF with text, table, and figure areas.
 
 ### F5 (Extension Development Host) — alternative
+
 A `.vscode/launch.json` is committed with the `"extensionHost"` configuration.
 Select **Run Extension** from the Run & Debug panel (not the Node.js debugger)
 to launch a second VS Code window with the extension loaded live.
@@ -67,10 +70,10 @@ which fails because `vscode` is not a real npm module.
 
 These must never be weakened without a documented security review:
 
-| Invariant | Where enforced |
-|---|---|
-| `isEvalSupported: false` | `src/webview.html` — PDF.js initialization |
-| `default-src 'none'` in CSP | `src/extension.js` — `getWebviewContent()` |
-| No external origins in `script-src` | `src/extension.js` — CSP header |
+| Invariant                                             | Where enforced                               |
+| ----------------------------------------------------- | -------------------------------------------- |
+| `isEvalSupported: false`                              | `src/webview.html` — PDF.js initialization   |
+| `default-src 'none'` in CSP                           | `src/extension.js` — `getWebviewContent()`   |
+| No external origins in `script-src`                   | `src/extension.js` — CSP header              |
 | `localResourceRoots` scoped to `lib/pdfjs/` + PDF dir | `src/extension.js` — `resolveCustomEditor()` |
-| `CustomReadonlyEditorProvider` (never write to disk) | `src/extension.js` — provider registration |
+| `CustomReadonlyEditorProvider` (never write to disk)  | `src/extension.js` — provider registration   |

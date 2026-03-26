@@ -81,7 +81,10 @@ function getWebviewContent(panel, pdfFileUri, extensionUri, nonce) {
 	let html = fs.readFileSync(templatePath, "utf8");
 
 	// Inject CSP meta tag after the charset declaration (reliable unique anchor)
-	html = html.replace("<meta charset=\"UTF-8\">", `<meta charset="UTF-8">\n\t${cspTag}`);
+	html = html.replace(
+		"<meta charset=\"UTF-8\">",
+		`<meta charset="UTF-8">\n\t${cspTag}`,
+	);
 	html = html.replace(/\{\{NONCE\}\}/g, nonce);
 	html = html.replace("{{PDF_URI}}", pdfUri);
 	html = html.replace("{{PDFJS_URI}}", pdfjsUri);
