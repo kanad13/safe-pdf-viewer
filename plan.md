@@ -271,6 +271,7 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 **Why Playwright and not just Node `--test`:**
 The current Node unit tests are purely structural (static analysis of the generated HTML string). They cannot verify that:
+
 - The canvas actually renders pixels
 - Text in the `.textLayer` is genuinely selectable and copyable
 - Zoom correctly re-positions the text layer over the canvas
@@ -279,12 +280,14 @@ The current Node unit tests are purely structural (static analysis of the genera
 Playwright can load the `webview.html` as a static page in a real browser, inject a mock PDF.js init message, and interact with the rendered output.
 
 **Architecture:**
+
 - Use `@playwright/test` as a `devDependency`
 - Create a `test/e2e/` directory for Playwright specs
 - Serve `src/webview.html` with a lightweight HTTP test fixture that injects a mock `acquireVsCodeApi()` shim and loads an actual PDF from `examples/test.pdf`
 - Tests run with `npm run test:e2e` (separate from `npm test` which stays lightweight)
 
 **Scope of tests (Phase 5.9 only — no VS Code host required):**
+
 - `renders-canvas.spec.ts`: canvas is visible and has non-zero pixel data after load
 - `text-selection.spec.ts`: clicking and dragging over text produces a non-empty `window.getSelection()` result
 - `zoom.spec.ts`: changing zoom to 200% changes canvas dimensions; text layer `--scale-factor` matches
