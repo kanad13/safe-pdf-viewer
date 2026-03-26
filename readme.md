@@ -45,12 +45,12 @@ Open VS Code Settings (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux) and search f
 
 | Setting | Options | Default | Description |
 |---|---|---|---|
-| `safePdfViewer.defaultZoom` | `fit-width`, `fit-page`, `75`, `100`, `125`, `150`, `200` | `fit-width` | Default zoom level when opening a PDF |
+| `safePdfViewer.defaultZoom` | `fit-page`, `fit-page`, `75`, `100`, `125`, `150`, `200` | `fit-page` | Default zoom level when opening a PDF |
 
 ## Features
 
 - Page-by-page navigation
-- Zoom controls (fit-width, fit-page, +/−, percentage)
+- Zoom controls (fit-page, fit-page, +/−, percentage)
 - Text selection and copy
 - In-document text search (`Ctrl+F` / `Cmd+F`)
 - Dark and light mode — respects VS Code theme

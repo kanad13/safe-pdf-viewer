@@ -2,9 +2,11 @@
 const { test, expect } = require("@playwright/test");
 
 test.describe("Text Selection", () => {
-	test("dragging over text yields non-empty getSelection()", async ({ page }) => {
+	test("dragging over text yields non-empty getSelection()", async ({
+		page,
+	}) => {
 		await page.goto("http://localhost:8080/");
-        
+
 		// Wait for the text layer to populate
 		const textLayer = page.locator("#text-layer");
 		await expect(textLayer).toBeVisible();

@@ -25,7 +25,7 @@ window.addEventListener("load", () => {
 		{
 			type: "init",
 			pdfUrl: pdfUrl,
-			defaultZoom: "fit-width",
+			defaultZoom: "fit-page",
 		},
 		"*",
 	);

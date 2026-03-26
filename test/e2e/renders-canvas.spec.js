@@ -4,7 +4,7 @@ const { test, expect } = require("@playwright/test");
 test.describe("Canvas rendering", () => {
 	test("renders canvas with non-zero pixel data", async ({ page }) => {
 		await page.goto("http://localhost:8080/");
-        
+
 		// Wait for the canvas to be rendered (pdf page to load)
 		const canvas = page.locator("#pdf-canvas");
 		await expect(canvas).toBeVisible();
@@ -21,10 +21,15 @@ test.describe("Canvas rendering", () => {
 		// Check that the canvas has non-zero pixel data
 		const isNotBlank = await canvas.evaluate((canvasEl) => {
 			const ctx = canvasEl.getContext("2d");
-			const imageData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height).data;
+			const imageData = ctx.getImageData(
+				0,
+				0,
+				canvasEl.width,
+				canvasEl.height,
+			).data;
 			for (let i = 0; i < imageData.length; i += 4) {
 				// If opacity is not 0, it means something is drawn (white background or text)
-				if (imageData[i+3] > 0) {
+				if (imageData[i + 3] > 0) {
 					return true;
 				}
 			}

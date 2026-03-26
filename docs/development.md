@@ -136,7 +136,7 @@ Test in the dev host:
 - Verify pages render correctly
 - Test navigation: arrow keys, PageUp/PageDown, scroll wheel, clicking `‹` `›` arrows
 - Verify page counter updates ("Page X / Y")
-- Test zoom: fit-width, fit-page, +/−, percentage presets
+- Test zoom: fit-page, fit-page, +/−, percentage presets
 - Test jump-to-page input
 - Test text selection and copy (`Ctrl+C`)
 - Test in-document search (`Ctrl+F`)

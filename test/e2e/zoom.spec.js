@@ -29,7 +29,7 @@ test.describe("Zoom", () => {
 			return currentWidth !== prevWidth && currentWidth > 0;
 		}, initialWidth);
 
-		// Check new width is roughly double original scale (actual 200% of base rather than double whatever "fit-width" was)
+		// Check new width is roughly double original scale (actual 200% of base rather than double whatever "fit-page" was)
 		// More simply: The width should change and be positive
 		const newWidthStr = await canvas.evaluate(el => el.style.width);
 		const newWidth = parseInt(newWidthStr, 10);
@@ -43,10 +43,10 @@ test.describe("Zoom", () => {
 		expect(parseFloat(scaleFactorStr)).toBeGreaterThan(0);
 	});
 
-	test("fit-width does not produce a horizontal scrollbar", async ({ page }) => {
+	test("fit-page does not produce a horizontal scrollbar", async ({ page }) => {
 		await page.goto("http://localhost:8080/");
 		
-		// Wait for initial render (default is fit-width)
+		// Wait for initial render (default is fit-page)
 		const canvas = page.locator("#pdf-canvas");
 		await expect(canvas).toBeVisible();
 		await page.waitForFunction(() => {

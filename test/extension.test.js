@@ -72,9 +72,9 @@ describe("getDefaultZoom", () => {
 	});
 
 	it("returns a recognized zoom value when config is not set", () => {
-		// Stub returns the defaultVal we pass → "fit-width"
+		// Stub returns the defaultVal we pass → "fit-page"
 		const validValues = [
-			"fit-width",
+			"fit-page",
 			"fit-page",
 			"50",
 			"75",

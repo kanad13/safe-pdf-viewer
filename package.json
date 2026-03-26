@@ -51,9 +51,8 @@
 			"properties": {
 				"safePdfViewer.defaultZoom": {
 					"type": "string",
-					"default": "fit-width",
+					"default": "fit-page",
 					"enum": [
-						"fit-width",
 						"fit-page",
 						"50",
 						"75",
@@ -63,7 +62,6 @@
 						"200"
 					],
 					"enumDescriptions": [
-						"Scale to fit the panel width",
 						"Scale to fit the full page within the panel",
 						"50% zoom",
 						"75% zoom",

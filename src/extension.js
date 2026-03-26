@@ -22,12 +22,12 @@ function getNonce() {
 /**
  * Reads the default zoom setting from VS Code configuration.
  *
- * @returns {string} Zoom value: "fit-width" | "fit-page" | "75" | "100" | "125" | "150" | "200"
+ * @returns {string} Zoom value: "fit-page" | "75" | "100" | "125" | "150" | "200"
  */
 function getDefaultZoom() {
 	return vscode.workspace
 		.getConfiguration("safePdfViewer")
-		.get("defaultZoom", "fit-width");
+		.get("defaultZoom", "fit-page");
 }
 
 /**

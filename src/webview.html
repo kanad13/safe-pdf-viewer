@@ -196,7 +196,6 @@
 
 		<button id="btn-zoom-out" aria-label="Zoom out" title="Zoom out (-)">−</button>
 		<select id="zoom-select" class="zoom-select" aria-label="Zoom level">
-			<option value="fit-width">Fit Width</option>
 			<option value="fit-page">Fit Page</option>
 			<option value="50">50%</option>
 			<option value="75">75%</option>
@@ -245,10 +244,6 @@
 		// ── Zoom helpers ───────────────────────────────────────────────
 
 		function resolveScale(zoom) {
-			if (zoom === "fit-width") {
-				const page = pdfDoc?._pdfInfo ? null : null; // resolved per-render
-				return null; // signal: compute from page dimensions
-			}
 			if (zoom === "fit-page") return null;
 			return parseFloat(zoom) / 100;
 		}
@@ -258,40 +253,6 @@
 			let availW = Math.max(1, viewport.clientWidth - 32);  // 16px padding each side
 			const availH = Math.max(1, viewport.clientHeight - 32);
 
-			if (currentZoom === "fit-width") {
-				let scale = availW / unscaledVp.width;
-				const expectedH = unscaledVp.height * scale;
-
-				const hasScrollbar = viewport.scrollHeight > viewport.clientHeight;
-				const willHaveScrollbar = expectedH > availH;
-
-				if (hasScrollbar !== willHaveScrollbar) {
-					// Measure scrollbar width directly to avoid layout shift when it appears/disappears
-					const div = document.createElement("div");
-					div.style.overflowY = "scroll";
-					div.style.width = "50px";
-					div.style.height = "50px";
-					div.style.visibility = "hidden";
-					document.body.appendChild(div);
-					const sbw = div.offsetWidth - div.clientWidth;
-					div.remove();
-
-					if (sbw > 0) {
-						if (willHaveScrollbar) {
-							// Scrollbar will appear, decreasing available width
-							scale = (availW - sbw) / unscaledVp.width;
-						} else {
-							// Scrollbar will disappear, possibly increasing width.
-							// Only increase if doing so doesn't cause forced scrollbar again.
-							const nextScale = (availW + sbw) / unscaledVp.width;
-							if (unscaledVp.height * nextScale <= availH) {
-								scale = nextScale;
-							}
-						}
-					}
-				}
-				return scale;
-			}
 			if (currentZoom === "fit-page") {
 				return Math.min(availW / unscaledVp.width, availH / unscaledVp.height);
 			}
@@ -450,7 +411,7 @@
 		function adjustZoom(direction) {
 			const numericSteps = ZOOM_STEPS;
 			let current = currentZoom;
-			if (current === "fit-width" || current === "fit-page") current = "100";
+			if (current === "fit-page") current = "100";
 			const idx = numericSteps.indexOf(current);
 			const next = numericSteps[Math.max(0, Math.min(numericSteps.length - 1, idx + direction))];
 			setZoom(next);
@@ -478,7 +439,7 @@
 		// Resize listener to re-render if fitting to width/page
 		let resizeTimeout = null;
 		window.addEventListener("resize", () => {
-			if (currentZoom === "fit-width" || currentZoom === "fit-page") {
+			if (currentZoom === "fit-page") {
 				clearTimeout(resizeTimeout);
 				resizeTimeout = setTimeout(() => {
 					if (pdfDoc) renderPage(currentPage);
