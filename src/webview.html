@@ -91,16 +91,6 @@
 			margin: 0 2px;
 		}
 
-		.zoom-select {
-			background: var(--vscode-input-background);
-			color: var(--vscode-input-foreground);
-			border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.3));
-			border-radius: 4px;
-			padding: 2px 4px;
-			font-size: 0.85em;
-			cursor: pointer;
-		}
-
 		/* ── Canvas viewport ──────────────────────────────────── */
 
 		.viewport {
@@ -195,15 +185,7 @@
 		<div class="toolbar-sep"></div>
 
 		<button id="btn-zoom-out" aria-label="Zoom out" title="Zoom out (-)">−</button>
-		<select id="zoom-select" class="zoom-select" aria-label="Zoom level">
-			<option value="fit-page">Fit Page</option>
-			<option value="50">50%</option>
-			<option value="75">75%</option>
-			<option value="100">100%</option>
-			<option value="125">125%</option>
-			<option value="150">150%</option>
-			<option value="200">200%</option>
-		</select>
+		<button id="btn-zoom-fit" aria-label="Fit Page" title="Fit Page">Fit Page</button>
 		<button id="btn-zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
 	</div>
 
@@ -239,7 +221,7 @@
 		const btnNext = document.getElementById("btn-next");
 		const pageInput = document.getElementById("page-input");
 		const pageTotal = document.getElementById("page-total");
-		const zoomSel = document.getElementById("zoom-select");
+		const btnZoomFit = document.getElementById("btn-zoom-fit");
 
 		// ── Zoom helpers ───────────────────────────────────────────────
 
@@ -409,26 +391,32 @@
 		const ZOOM_STEPS = ["50", "75", "100", "125", "150", "200"];
 
 		function adjustZoom(direction) {
-			const numericSteps = ZOOM_STEPS;
 			let current = currentZoom;
-			if (current === "fit-page") current = "100";
-			const idx = numericSteps.indexOf(current);
-			const next = numericSteps[Math.max(0, Math.min(numericSteps.length - 1, idx + direction))];
-			setZoom(next);
+			if (current === "fit-page") {
+				current = "100";
+			}
+			const currentNum = parseFloat(current) || 100;
+
+			let nextV = currentNum;
+			if (direction > 0) {
+				const nextStep = ZOOM_STEPS.find(s => parseFloat(s) > currentNum);
+				nextV = nextStep || ZOOM_STEPS[ZOOM_STEPS.length - 1];
+			} else {
+				const rev = [...ZOOM_STEPS].reverse();
+				const nextStep = rev.find(s => parseFloat(s) < currentNum);
+				nextV = nextStep || ZOOM_STEPS[0];
+			}
+			setZoom(nextV);
 		}
 
 		function setZoom(value) {
 			currentZoom = value;
-			zoomSel.value = value;
 			if (pdfDoc) renderPage(currentPage);
 		}
 
 		document.getElementById("btn-zoom-in").addEventListener("click", () => adjustZoom(+1));
 		document.getElementById("btn-zoom-out").addEventListener("click", () => adjustZoom(-1));
-		zoomSel.addEventListener("change", () => setZoom(zoomSel.value));
-
-		// Sync select to default zoom on load
-		zoomSel.value = currentZoom;
+		btnZoomFit.addEventListener("click", () => setZoom("fit-page"));
 
 		// ── VS Code message channel ─────────────────────────────────────
 		// Mirrors mermaid-slideshow postMessage pattern.

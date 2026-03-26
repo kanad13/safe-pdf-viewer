@@ -28,12 +28,12 @@ One active webview panel per file (VS Code manages this via the custom editor AP
 
 ## Key Functions
 
-| Function | Purpose |
-|---|---|
-| `getNonce()` | Generates random 32-char alphanumeric token for CSP (verbatim from mermaid-slideshow) |
-| `getWebviewContent(pdfUri, pdfjsUri, nonce)` | Reads `src/webview.html`, replaces `{{NONCE}}`, `{{PDF_URI}}`, `{{PDFJS_URI}}`, `{{DEFAULT_ZOOM}}` tokens, returns full HTML |
-| `activate(context)` | Registers `CustomReadonlyEditorProvider`, applies `onDidChangeConfiguration` listener |
-| `SafePdfEditorProvider.resolveCustomEditor(document, webviewPanel, _token)` | Sets up webview options, CSP, and posts initial config; handles incoming messages |
+| Function                                                                    | Purpose                                                                                                                      |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `getNonce()`                                                                | Generates random 32-char alphanumeric token for CSP (verbatim from mermaid-slideshow)                                        |
+| `getWebviewContent(pdfUri, pdfjsUri, nonce)`                                | Reads `src/webview.html`, replaces `{{NONCE}}`, `{{PDF_URI}}`, `{{PDFJS_URI}}`, `{{DEFAULT_ZOOM}}` tokens, returns full HTML |
+| `activate(context)`                                                         | Registers `CustomReadonlyEditorProvider`, applies `onDidChangeConfiguration` listener                                        |
+| `SafePdfEditorProvider.resolveCustomEditor(document, webviewPanel, _token)` | Sets up webview options, CSP, and posts initial config; handles incoming messages                                            |
 
 ## VS Code API: CustomReadonlyEditorProvider
 
@@ -46,6 +46,7 @@ register → contributes.customEditors in package.json
 ```
 
 This is more idiomatic than a command for file-type viewers. The tradeoff vs the mermaid-slideshow command approach:
+
 - **Pros:** Integrates with file explorer, tab system, and editor groups natively
 - **Cons:** Slightly more VS Code API surface to understand
 
@@ -79,7 +80,7 @@ State is closure-scoped inside `resolveCustomEditor`, keeping it per-panel:
 
 - `currentPage` — 1-based index of the visible page
 - `totalPages` — populated after PDF loads
-- `currentZoom` — active zoom (string: `"fit-page"`, or `"125"` etc.)
+- `currentZoom` — active zoom (string: `"fit-page"`, or a numeric percent string like `"100"`, `"150"` etc.)
 - `pdfUri` — the VS Code `Uri` of the open file
 
 The webview-side state (canvas content, scroll position) lives entirely in the webview. The extension host does not try to mirror it.
@@ -88,26 +89,29 @@ The webview-side state (canvas content, scroll position) lives entirely in the w
 
 Messages follow a `{ type, ...payload }` convention (same as mermaid-slideshow):
 
-| Direction | Message type | Payload | Purpose |
-|---|---|---|---|
-| Extension → Webview | `"init"` | `{ pdfUrl, defaultZoom }` | Sent once after webview is ready |
-| Webview → Extension | `"ready"` | — | Signals DOMContentLoaded, triggers init |
-| Webview → Extension | `"pageChanged"` | `{ page, total }` | Updates extension-side state (for status bar, etc.) |
+| Direction           | Message type    | Payload                   | Purpose                                             |
+| ------------------- | --------------- | ------------------------- | --------------------------------------------------- |
+| Extension → Webview | `"init"`        | `{ pdfUrl, defaultZoom }` | Sent once after webview is ready                    |
+| Webview → Extension | `"ready"`       | —                         | Signals DOMContentLoaded, triggers init             |
+| Webview → Extension | `"pageChanged"` | `{ page, total }`         | Updates extension-side state (for status bar, etc.) |
 
 ## PDF.js Integration
 
 PDF.js is consumed as a static local bundle, not as an npm dependency.
 
 **Why not an npm dep?**
+
 - The extension ships source directly (no bundler). `require('pdfjs-dist')` would need a bundler to work in the webview context.
 - Bundling PDF.js into a Webview-compatible IIFE is simpler to manage as a one-time `lib/` asset.
 
 **Setup (one-time, during development):**
+
 1. Download the prebuilt PDF.js dist from [mozilla/pdf.js releases](https://github.com/mozilla/pdf.js/releases)
 2. Copy `pdfjs-dist/build/pdf.mjs` and `pdfjs-dist/build/pdf.worker.mjs` into `lib/pdfjs/`
 3. These files are committed to the repo — no build step, no CDN
 
 **Worker setup in webview:**
+
 ```javascript
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUri; // webview URI to lib/pdfjs/pdf.worker.mjs
 ```

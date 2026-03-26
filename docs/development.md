@@ -136,12 +136,12 @@ Test in the dev host:
 - Verify pages render correctly
 - Test navigation: arrow keys, PageUp/PageDown, scroll wheel, clicking `‹` `›` arrows
 - Verify page counter updates ("Page X / Y")
-- Test zoom: fit-page, +/−, percentage presets
+- Test zoom: Fit Page button, + (zoom in), − (zoom out)
 - Test jump-to-page input
 - Test text selection and copy (`Ctrl+C`)
 - Test in-document search (`Ctrl+F`)
 - Test dark theme: switch VS Code to a dark theme, verify viewer chrome updates
-- Test zoom setting: change `safePdfViewer.defaultZoom` in Settings, close and reopen PDF
+- Test zoom setting: change `safePdfViewer.defaultZoom` in Settings (e.g. `"100"` or `"fit-page"`), close and reopen PDF
 - Check Developer Tools for errors (`Help > Toggle Developer Tools`)
 
 ### Step 4: Lint & Build
@@ -237,16 +237,20 @@ Add entry at the **very top** (after header):
 ## [X.Y.Z] - YYYY-MM-DD
 
 ### Added
+
 - New feature description
 
 ### Changed
+
 - Enhancement description
 
 ### Fixed
+
 - Bug fix description
 ```
 
 **Important:**
+
 - Use actual date (YYYY-MM-DD)
 - Only include **user-facing changes**
 - Exclude: dependency updates, internal refactoring, test improvements, build changes
