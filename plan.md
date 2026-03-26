@@ -21,85 +21,86 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ### Tasks
 
-- [ ] `git init`, set default branch to `main`, initial commit of all seed files as-is
-- [ ] `npm install` (generate `package-lock.json`), then commit lock file
-- [ ] Obtain and place PDF.js static bundle: `lib/pdfjs/pdf.mjs` + `lib/pdfjs/pdf.worker.mjs`
-  - Download from [mozilla/pdf.js releases](https://github.com/mozilla/pdf.js/releases) (prebuilt dist, not legacy)
-  - Commit both files; record the PDF.js version in a comment at top of `src/extension.js`
-- [ ] Add a `.vscodeignore` to exclude `lib/pdfjs` source maps and docs from the `.vsix`
-- [ ] Add a `examples/test.pdf` — any multi-page PDF works; a good test PDF has: text content, an image, a table, at least 5 pages
-- [ ] Add a placeholder `assets/icon.png` (128×128 px solid colour is fine for now)
-- [ ] Verify: `npm run lint` passes, `npm test` passes (lifecycle smoke tests only at this point)
-- [ ] Verify: `npm run package` produces a `.vsix` without errors
-- [ ] Commit: `chore: scaffold repo — install, pdfjs bundle, test pdf`
+- [x] `git init`, set default branch to `main`, initial commit of all seed files as-is
+- [x] `npm install` (generate `package-lock.json`), then commit lock file
+- [x] Obtain and place PDF.js static bundle: `lib/pdfjs/pdf.mjs` + `lib/pdfjs/pdf.worker.mjs`
+  - Downloaded PDF.js **5.5.207** prebuilt dist from mozilla/pdf.js releases
+  - Version recorded in comment at top of `src/extension.js`
+- [x] Add a `.vscodeignore` to exclude `lib/pdfjs` source maps and docs from the `.vsix`
+- [x] Add `examples/test.pdf` — 5-page PDF with text, table, and figure areas
+- [x] Add a placeholder `assets/icon.png` (128×128 px solid blue)
+- [x] Added `LICENSE` (MIT) — required by `vsce package`; was not in original task list
+- [x] Verify: `npm run lint` passes (0 errors, 3 warnings), `npm test` passes (7/7)
+- [x] Verify: `npm run package` produces `safe-pdf-viewer-0.1.0.vsix` (625 KB)
+- [x] Commit: `chore: scaffold repo -- install, pdfjs bundle, test pdf`
 
 ### Exit Gate
 
-- `npm test` passes
-- `npm run package` produces a `.vsix`
-- No uncommitted files
+- [x] `npm test` passes — 7/7 tests
+- [x] `npm run package` produces a `.vsix` — `safe-pdf-viewer-0.1.0.vsix`
+- [x] No uncommitted files — working tree clean
+
+**✅ Phase 0 COMPLETE** (committed on main, 3 commits)
 
 ---
 
 ## Phase 1 — Core Render (Single Page)
 
-**Goal:** Opening a `.pdf` file in VS Code shows the first page rendered on canvas. Nothing else.
+**Goal:** Opening a `.pdf` file in VS Code shows the first page rendered on canvas.
 
 **Branch:** `feat/core-render`
 
+> **Seed discovery:** Both `resolveCustomEditor` (in `src/extension.js`) and the full webview JS
+> (in `src/webview.html`) are already completely implemented in the seed — including toolbar,
+> navigation, zoom, keyboard, and scroll-wheel. The seed was richer than anticipated.
+> Phase 1 therefore focuses on: writing the `getWebviewContent()` unit tests and doing the
+> first end-to-end manual render verification. Do **not** strip or simplify the existing HTML.
+
 ### Tasks
 
-- [ ] Wire up `SafePdfEditorProvider.resolveCustomEditor` fully:
-  - Set `webviewOptions` with correct `localResourceRoots`
-  - Generate nonce, render `getWebviewContent()`, set `webviewPanel.webview.html`
-  - Listen for `"ready"` message → send `"init"` with PDF URI
-- [ ] Implement webview JS (`src/webview.html`):
-  - Import PDF.js via `{{PDFJS_URI}}`
-  - Set `workerSrc` to `{{WORKER_URI}}`
-  - On `"init"` message: call `pdfjsLib.getDocument({ url, isEvalSupported: false })`
-  - On load success: call `renderPage(1)` — draw onto `#pdf-canvas`
-  - On load failure: show plain text error message
-  - Send `"ready"` on `DOMContentLoaded`
-- [ ] Strip the toolbar/zoom/nav from this phase — add them in later phases. Show only the canvas.
-- [ ] Write unit tests for `getWebviewContent()`:
-  - Token replacement works (`{{NONCE}}`, `{{PDF_URI}}`, etc.)
-  - Output contains the nonce value
-  - Output does not contain unresolved `{{...}}` tokens
+- [ ] Write unit tests for `getWebviewContent()` in `test/extension.test.js`:
+  - Token replacement works for all five tokens: `{{NONCE}}`, `{{PDF_URI}}`, `{{PDFJS_URI}}`, `{{WORKER_URI}}`, `{{DEFAULT_ZOOM}}`
+  - Output contains the nonce value passed in
+  - Output does **not** contain any unresolved `{{...}}` tokens
+  - Note: `getWebviewContent` depends on the filesystem (reads `src/webview.html`) — stub `panel` and `extensionUri` as needed
+- [ ] Verify CSP header in rendered HTML contains `nonce-<value>` and `default-src 'none'`
 
 ### Manual Tests
 
-- Open `examples/test.pdf` — first page should render
-- Open Developer Tools — no console errors
-- Confirm CSP blocks any attempted external load (check Network tab: no external requests)
+- Press `F5` to launch Extension Development Host
+- Open `examples/test.pdf` — first page should render on canvas
+- Open Developer Tools → Console — zero errors
+- Developer Tools → Network — no external requests (CSP working)
 
 ### Exit Gate
 
 - `npm test` passes (includes new `getWebviewContent` tests)
 - `npm run package` passes
-- First page of `examples/test.pdf` renders visibly
+- First page of `examples/test.pdf` renders visibly in F5 host
 - Commit and merge to `main`: `feat: render first page via PDF.js`
 
 ---
 
 ## Phase 2 — Page Navigation
 
-**Goal:** Navigate between all pages. Toolbar shows prev/next buttons and page counter.
+**Goal:** Navigate between all pages. Verify all navigation paths work end-to-end.
 
 **Branch:** `feat/navigation`
 
+> **Seed discovery:** All navigation code is already in `src/webview.html` — toolbar buttons,
+> page counter, `renderPage`/`goTo`/`goNext`/`goPrev`, keyboard, scroll-wheel with cooldown,
+> and `updateToolbar`. This phase is **verification-only** — create the branch, manually test
+> every nav path, confirm `npm test` still passes, then merge.
+
 ### Tasks
 
-- [ ] Add prev/next toolbar buttons (`#btn-prev`, `#btn-next`) and page counter (`#page-input`, `#page-total`)
-- [ ] Implement `renderPage(n)` with cancel-previous-render logic (`renderTask.cancel()`)
-- [ ] Implement `goTo(n)`, `goNext()`, `goPrev()` with clamping
-- [ ] Wire keyboard: `ArrowRight`/`ArrowDown`/`PageDown` → next; `ArrowLeft`/`ArrowUp`/`PageUp` → prev
-- [ ] Wire scroll-wheel with cooldown — turn page only at scroll boundary (not mid-page)
-- [ ] Wire `#page-input` change event (jump to typed page number)
-- [ ] `updateToolbar()` — disable prev at page 1, disable next at last page
-- [ ] Unit tests:
-  - `getNonce()` returns 32 alphanumeric chars (already exists — verify still passes)
-  - `getDefaultZoom()` returns a valid value (already exists — verify still passes)
-  - No new unit-testable pure functions to add in this phase (nav logic is webview-side)
+- [ ] Create branch `feat/navigation` from `main`
+- [ ] Manually verify all navigation paths (see Manual Tests below)
+- [ ] Confirm `npm test` still passes (no regressions)
+- [ ] Merge to `main`
+- [ ] Unit tests (no new pure functions to add — nav logic is webview-side):
+  - `getNonce()` — verify still passes
+  - `getDefaultZoom()` — verify still passes
 
 ### Manual Tests
 
@@ -120,22 +121,21 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ## Phase 3 — Zoom Controls
 
-**Goal:** Fit-width, fit-page, preset percentages, and +/− step buttons all work.
+**Goal:** Fit-width, fit-page, preset percentages, and +/− step buttons all work. Resize re-renders.
 
 **Branch:** `feat/zoom`
 
+> **Seed discovery:** Most zoom code is already in `src/webview.html` — `#zoom-select`,
+> `#btn-zoom-in`/`#btn-zoom-out`, `computeScale`, `setZoom`, `adjustZoom`, `ZOOM_STEPS`,
+> keyboard shortcuts, and `{{DEFAULT_ZOOM}}` token. One item is **missing** and must be added:
+> the window `resize` event handler to re-render fit-width/fit-page when the panel is resized.
+> (The debounce for that handler belongs in Phase 4.)
+
 ### Tasks
 
-- [ ] Add zoom toolbar: `#zoom-select` dropdown, `#btn-zoom-in`, `#btn-zoom-out`
-- [ ] Implement `computeScale(pdfPage)`:
-  - `fit-width`: `viewportWidth / unscaledPageWidth`
-  - `fit-page`: `min(viewportWidth / W, viewportHeight / H)`
-  - Numeric string (e.g. `"125"`): `parseFloat / 100`
-- [ ] Implement `setZoom(value)` and `adjustZoom(direction)` stepping through `ZOOM_STEPS`
-- [ ] Wire `+` / `-` keyboard shortcuts (skip when `#page-input` focused)
-- [ ] On window `resize`, re-render current page (fit-width/fit-page need re-computation)
-- [ ] Apply `{{DEFAULT_ZOOM}}` token on page load; sync `#zoom-select` value on init
-- [ ] Unit tests: `getDefaultZoom()` returns a value in the enum list
+- [ ] Create branch `feat/zoom` from `main`
+- [ ] Add `window.addEventListener("resize", ...)` in `src/webview.html` — calls `renderPage(currentPage)` only when `currentZoom` is `"fit-width"` or `"fit-page"`; raw handler without debounce (debounce added in Phase 4)
+- [ ] Unit tests: confirm `getDefaultZoom()` returns a value in the allowed enum list (test already exists — verify it still passes)
 
 ### Manual Tests
 
@@ -155,19 +155,27 @@ Progressive, phase-gated plan. Each phase ends with: tests passing, `.vsix` buil
 
 ## Phase 4 — Theme Awareness & UX Polish
 
-**Goal:** Toolbar and chrome respect VS Code light/dark theme. Minor UX improvements.
+**Goal:** Toolbar and chrome respect VS Code light/dark theme. Resize is debounced.
 
 **Branch:** `feat/theme-polish`
 
+> **Seed discovery:** Most Phase 4 work is already done in the seed:
+> - All CSS uses `var(--vscode-*)` tokens (only `#pdf-canvas` background is `#fff`, correct)
+> - All toolbar buttons have `aria-label` and `title` attributes
+> - Toolbar separators (`<div class="toolbar-sep">`) are already present
+> - Canvas has `box-shadow` drop shadow already
+>
+> Remaining work: add `onDidChangeActiveColorTheme` listener in `src/extension.js`,
+> and replace the raw resize handler from Phase 3 with a debounced version.
+
 ### Tasks
 
-- [ ] Audit all CSS: ensure every colour uses `var(--vscode-*)` tokens, never hardcoded colours
-  - Exception: `#pdf-canvas` background stays `#fff` — PDF page background is always white
-- [ ] Add `onDidChangeActiveColorTheme` listener in `src/extension.js` — reload webview HTML with fresh nonce when theme changes
-- [ ] Toolbar accessibility: add `aria-label` and `title` (hover tooltip) to all buttons
-- [ ] Add toolbar separator elements between logical groups (nav / zoom)
-- [ ] Canvas drop shadow to distinguish page from panel background
-- [ ] Debounce window resize handler (avoid re-render on every pixel during drag)
+- [ ] Create branch `feat/theme-polish` from `main`
+- [ ] Add `onDidChangeActiveColorTheme` listener in `src/extension.js`:
+  - On theme change: regenerate nonce and reset `webviewPanel.webview.html` with fresh content
+  - Wire via `vscode.window.onDidChangeActiveColorTheme`; push disposable to `context.subscriptions`
+  - Note: must handle the case where the panel may have been disposed before the event fires
+- [ ] Replace the raw resize handler in `src/webview.html` with a debounced version (300ms)
 - [ ] No new unit tests required for this phase
 
 ### Manual Tests
