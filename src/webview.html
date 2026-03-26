@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<!--
+		CSP notes:
+		- script-src: nonce only — no external origins, no unsafe-eval
+		- worker-src blob: — PDF.js web worker is created via URL.createObjectURL
+		- img-src: data: for PDF-embedded images rendered via canvas
+		- style-src unsafe-inline: VS Code CSS variables require inline styles
+	-->
+	<meta http-equiv="Content-Security-Policy" content="
+		default-src 'none';
+		script-src 'nonce-{{NONCE}}';
+		worker-src blob:;
+		style-src 'unsafe-inline';
+		img-src data:;
+	">
+	<title>PDF Viewer</title>
+	<style>
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			background: var(--vscode-editor-background);
+			color: var(--vscode-editor-foreground);
+			height: 100vh;
+			overflow: hidden;
+			display: flex;
+			flex-direction: column;
+		}
+
+		/* ── Toolbar ─────────────────────────────────────────── */
+
+		.toolbar {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 6px 12px;
+			background: var(--vscode-editorWidget-background);
+			border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+			flex-shrink: 0;
+			user-select: none;
+		}
+
+		.toolbar button {
+			background: transparent;
+			border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+			color: var(--vscode-editor-foreground);
+			border-radius: 4px;
+			padding: 3px 8px;
+			font-size: 0.85em;
+			cursor: pointer;
+			line-height: 1.4;
+			transition: background 0.12s ease, border-color 0.12s ease;
+		}
+
+		.toolbar button:hover {
+			background: var(--vscode-list-hoverBackground);
+			border-color: var(--vscode-focusBorder);
+		}
+
+		.toolbar button:disabled {
+			opacity: 0.35;
+			cursor: default;
+		}
+
+		.toolbar button:disabled:hover {
+			background: transparent;
+			border-color: var(--vscode-widget-border, rgba(128,128,128,0.2));
+		}
+
+		.page-input {
+			width: 44px;
+			text-align: center;
+			background: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+			border-radius: 4px;
+			padding: 2px 4px;
+			font-size: 0.85em;
+		}
+
+		.page-label {
+			font-size: 0.85em;
+			color: var(--vscode-descriptionForeground);
+			white-space: nowrap;
+		}
+
+		.toolbar-sep {
+			width: 1px;
+			height: 16px;
+			background: var(--vscode-widget-border, rgba(128,128,128,0.2));
+			margin: 0 2px;
+		}
+
+		.zoom-select {
+			background: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+			border-radius: 4px;
+			padding: 2px 4px;
+			font-size: 0.85em;
+			cursor: pointer;
+		}
+
+		/* ── Canvas viewport ──────────────────────────────────── */
+
+		.viewport {
+			flex: 1;
+			overflow: auto;
+			display: flex;
+			justify-content: center;
+			align-items: flex-start;
+			padding: 16px;
+			background: var(--vscode-editor-background);
+		}
+
+		#pdf-canvas {
+			display: block;
+			box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+			background: #fff; /* PDF page background is always white */
+		}
+
+		/* ── Empty / error state ──────────────────────────────── */
+
+		.status-message {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			height: 100%;
+			font-size: 1em;
+			color: var(--vscode-descriptionForeground);
+			text-align: center;
+			padding: 32px;
+		}
+	</style>
+</head>
+<body>
+
+	<!-- Toolbar -->
+	<div class="toolbar">
+		<button id="btn-prev" aria-label="Previous page" title="Previous page (←)">&#8249;</button>
+		<input  id="page-input" class="page-input" type="number" min="1" aria-label="Current page" />
+		<span   id="page-total" class="page-label">/ —</span>
+		<button id="btn-next" aria-label="Next page" title="Next page (→)">&#8250;</button>
+
+		<div class="toolbar-sep"></div>
+
+		<button id="btn-zoom-out"  aria-label="Zoom out"  title="Zoom out (-)">−</button>
+		<select id="zoom-select" class="zoom-select" aria-label="Zoom level">
+			<option value="fit-width">Fit Width</option>
+			<option value="fit-page">Fit Page</option>
+			<option value="50">50%</option>
+			<option value="75">75%</option>
+			<option value="100">100%</option>
+			<option value="125">125%</option>
+			<option value="150">150%</option>
+			<option value="200">200%</option>
+		</select>
+		<button id="btn-zoom-in"   aria-label="Zoom in"   title="Zoom in (+)">+</button>
+	</div>
+
+	<!-- PDF canvas viewport -->
+	<div class="viewport" id="viewport">
+		<canvas id="pdf-canvas"></canvas>
+	</div>
+
+	<script type="module" nonce="{{NONCE}}">
+		// ── PDF.js setup ───────────────────────────────────────────────
+		// Loaded from local bundle — no CDN, works fully offline.
+		// isEvalSupported: false disables PDF JavaScript execution.
+		import * as pdfjsLib from "{{PDFJS_URI}}";
+
+		pdfjsLib.GlobalWorkerOptions.workerSrc = "{{WORKER_URI}}";
+
+		// ── State ──────────────────────────────────────────────────────
+		let pdfDoc      = null;
+		let currentPage = 1;
+		let currentZoom = "{{DEFAULT_ZOOM}}";
+		let renderTask  = null;   // Track in-flight renders to cancel on nav
+
+		const canvas    = document.getElementById("pdf-canvas");
+		const ctx       = canvas.getContext("2d");
+		const viewport  = document.getElementById("viewport");
+		const btnPrev   = document.getElementById("btn-prev");
+		const btnNext   = document.getElementById("btn-next");
+		const pageInput = document.getElementById("page-input");
+		const pageTotal = document.getElementById("page-total");
+		const zoomSel   = document.getElementById("zoom-select");
+
+		// ── Zoom helpers ───────────────────────────────────────────────
+
+		function resolveScale(zoom) {
+			if (zoom === "fit-width") {
+				const page = pdfDoc?._pdfInfo ? null : null; // resolved per-render
+				return null; // signal: compute from page dimensions
+			}
+			if (zoom === "fit-page") return null;
+			return parseFloat(zoom) / 100;
+		}
+
+		async function computeScale(pdfPage) {
+			const unscaledVp = pdfPage.getViewport({ scale: 1 });
+			const availW     = viewport.clientWidth  - 32;  // 16px padding each side
+			const availH     = viewport.clientHeight - 32;
+			if (currentZoom === "fit-width") {
+				return availW / unscaledVp.width;
+			}
+			if (currentZoom === "fit-page") {
+				return Math.min(availW / unscaledVp.width, availH / unscaledVp.height);
+			}
+			return parseFloat(currentZoom) / 100;
+		}
+
+		// ── Render ─────────────────────────────────────────────────────
+
+		async function renderPage(pageNum) {
+			if (!pdfDoc) return;
+
+			// Cancel any in-flight render
+			if (renderTask) {
+				renderTask.cancel();
+				renderTask = null;
+			}
+
+			const page  = await pdfDoc.getPage(pageNum);
+			const scale = await computeScale(page);
+			const pv    = page.getViewport({ scale });
+
+			canvas.width  = pv.width;
+			canvas.height = pv.height;
+
+			renderTask = page.render({ canvasContext: ctx, viewport: pv });
+			try {
+				await renderTask.promise;
+			} catch (err) {
+				if (err?.name !== "RenderingCancelledException") {
+					console.error("PDF render error:", err);
+					showStatus("Failed to render page " + pageNum);
+				}
+				return;
+			}
+
+			currentPage = pageNum;
+			updateToolbar();
+		}
+
+		function updateToolbar() {
+			if (!pdfDoc) return;
+			const total = pdfDoc.numPages;
+			pageInput.value   = currentPage;
+			pageTotal.textContent = "/ " + total;
+			btnPrev.disabled  = currentPage <= 1;
+			btnNext.disabled  = currentPage >= total;
+		}
+
+		function showStatus(msg) {
+			canvas.style.display = "none";
+			let s = document.querySelector(".status-message");
+			if (!s) {
+				s = document.createElement("div");
+				s.className = "status-message";
+				viewport.appendChild(s);
+			}
+			s.textContent = msg;
+		}
+
+		// ── Navigation ─────────────────────────────────────────────────
+
+		function goTo(n) {
+			if (!pdfDoc) return;
+			const clamped = Math.max(1, Math.min(pdfDoc.numPages, n));
+			if (clamped !== currentPage) renderPage(clamped);
+		}
+
+		function goNext() { goTo(currentPage + 1); }
+		function goPrev() { goTo(currentPage - 1); }
+
+		btnNext.addEventListener("click", goNext);
+		btnPrev.addEventListener("click", goPrev);
+
+		pageInput.addEventListener("change", () => {
+			goTo(parseInt(pageInput.value, 10) || currentPage);
+		});
+
+		// Keyboard navigation
+		document.addEventListener("keydown", (e) => {
+			if (document.activeElement === pageInput) return;
+			if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown") {
+				e.preventDefault();
+				goNext();
+			} else if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp") {
+				e.preventDefault();
+				goPrev();
+			} else if (e.key === "+" || e.key === "=") {
+				adjustZoom(+1);
+			} else if (e.key === "-") {
+				adjustZoom(-1);
+			}
+		});
+
+		// Scroll-wheel page navigation (with cooldown to avoid runaway)
+		let scrollCooldown = false;
+		viewport.addEventListener("wheel", (e) => {
+			// Only intercept when at the scroll boundary, to allow normal scrolling
+			const atTop    = viewport.scrollTop === 0;
+			const atBottom = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 1;
+			if (e.deltaY > 0 && atBottom) {
+				if (scrollCooldown) return;
+				scrollCooldown = true;
+				setTimeout(() => { scrollCooldown = false; }, 400);
+				goNext();
+			} else if (e.deltaY < 0 && atTop) {
+				if (scrollCooldown) return;
+				scrollCooldown = true;
+				setTimeout(() => { scrollCooldown = false; }, 400);
+				goPrev();
+			}
+		});
+
+		// ── Zoom ───────────────────────────────────────────────────────
+
+		const ZOOM_STEPS = ["50", "75", "100", "125", "150", "200"];
+
+		function adjustZoom(direction) {
+			const numericSteps = ZOOM_STEPS;
+			let current = currentZoom;
+			if (current === "fit-width" || current === "fit-page") current = "100";
+			const idx = numericSteps.indexOf(current);
+			const next = numericSteps[Math.max(0, Math.min(numericSteps.length - 1, idx + direction))];
+			setZoom(next);
+		}
+
+		function setZoom(value) {
+			currentZoom = value;
+			zoomSel.value = value;
+			if (pdfDoc) renderPage(currentPage);
+		}
+
+		document.getElementById("btn-zoom-in").addEventListener("click",  () => adjustZoom(+1));
+		document.getElementById("btn-zoom-out").addEventListener("click", () => adjustZoom(-1));
+		zoomSel.addEventListener("change", () => setZoom(zoomSel.value));
+
+		// Sync select to default zoom on load
+		zoomSel.value = currentZoom;
+
+		// ── VS Code message channel ─────────────────────────────────────
+		// Mirrors mermaid-slideshow postMessage pattern.
+
+		const vscode = acquireVsCodeApi();
+
+		window.addEventListener("message", async (event) => {
+			const message = event.data;
+			if (message.type === "init") {
+				const loadingTask = pdfjsLib.getDocument({
+					url: message.pdfUrl,
+					isEvalSupported: false,   // Disable PDF JavaScript
+					disableFontFace: false,
+				});
+				try {
+					pdfDoc = await loadingTask.promise;
+					canvas.style.display = "block";
+					await renderPage(1);
+				} catch (err) {
+					console.error("PDF load error:", err);
+					showStatus("Could not load PDF.");
+				}
+			}
+		});
+
+		// Signal to extension host that webview is ready to receive init
+		vscode.postMessage({ type: "ready" });
+	</script>
+</body>
+</html>
