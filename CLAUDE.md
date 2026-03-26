@@ -42,9 +42,26 @@ When a task touches 3+ files or requires multiple related edits:
 
 ## Testing
 
-- Manual testing via F5 debug launch
-- Test file at `examples/test.pdf` — should be a multi-page PDF with mixed content (text, images, tables)
-- `npm test` must pass before any work is considered complete
+### Automated tests
+- Run `npm test` — must pass (0 failures, 0 lint errors) before any phase is considered complete
+
+### Manual testing — preferred method (VSIX install)
+End-to-end manual verification uses a locally installed `.vsix`, not F5:
+
+1. `npm run package` — builds `safe-pdf-viewer-*.vsix` in the repo root
+2. In VS Code: **Extensions** sidebar → `···` menu (top-right) → **Install from VSIX…** → select the file
+3. When prompted, click **Reload Window** (or run `Developer: Reload Window` from the Command Palette)
+4. Open `examples/test.pdf` — the extension should render it in a webview
+5. After testing, uninstall the extension from the Extensions sidebar before the next iteration
+
+Test file at `examples/test.pdf` — 5-page PDF with text, table, and figure areas.
+
+### F5 (Extension Development Host) — alternative
+A `.vscode/launch.json` is committed with the `"extensionHost"` configuration.
+Select **Run Extension** from the Run & Debug panel (not the Node.js debugger)
+to launch a second VS Code window with the extension loaded live.
+Do **not** select "Node.js" — that tries to run `extension.js` as a plain script,
+which fails because `vscode` is not a real npm module.
 
 ## Security Invariants
 
