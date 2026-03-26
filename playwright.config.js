@@ -17,7 +17,7 @@ module.exports = defineConfig({
     },
   ],
   webServer: {
-    command: 'npx http-server -p 8080',
+    command: 'node test/e2e/fixtures/server.js',
     port: 8080,
     reuseExistingServer: !process.env.CI,
   },
