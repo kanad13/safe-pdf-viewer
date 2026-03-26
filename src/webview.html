@@ -106,12 +106,10 @@
 		.viewport {
 			flex: 1;
 			overflow: auto;
-			overflow-y: scroll;
 			padding: 16px;
 			background: var(--vscode-editor-background);
-			/* Not using flex centering: justify-content:center + overflow:auto
-			   clips the left edge at high zoom — the left side becomes unreachable.
-			   Centering is handled by margin:0 auto on .page-container instead. */
+			display: flex;
+			flex-direction: column;
 		}
 
 		.page-container {
@@ -120,7 +118,8 @@
 			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 			background: #fff;
 			/* PDF page background is always white */
-			margin: 0 auto;
+			margin: auto;
+			flex-shrink: 0;
 		}
 
 		#pdf-canvas {
@@ -256,11 +255,42 @@
 
 		async function computeScale(pdfPage) {
 			const unscaledVp = pdfPage.getViewport({ scale: 1 });
-			const availW = Math.max(1, viewport.clientWidth - 32);  // 16px padding each side
+			let availW = Math.max(1, viewport.clientWidth - 32);  // 16px padding each side
 			const availH = Math.max(1, viewport.clientHeight - 32);
 
 			if (currentZoom === "fit-width") {
-				return availW / unscaledVp.width;
+				let scale = availW / unscaledVp.width;
+				const expectedH = unscaledVp.height * scale;
+
+				const hasScrollbar = viewport.scrollHeight > viewport.clientHeight;
+				const willHaveScrollbar = expectedH > availH;
+
+				if (hasScrollbar !== willHaveScrollbar) {
+					// Measure scrollbar width directly to avoid layout shift when it appears/disappears
+					const div = document.createElement("div");
+					div.style.overflowY = "scroll";
+					div.style.width = "50px";
+					div.style.height = "50px";
+					div.style.visibility = "hidden";
+					document.body.appendChild(div);
+					const sbw = div.offsetWidth - div.clientWidth;
+					div.remove();
+
+					if (sbw > 0) {
+						if (willHaveScrollbar) {
+							// Scrollbar will appear, decreasing available width
+							scale = (availW - sbw) / unscaledVp.width;
+						} else {
+							// Scrollbar will disappear, possibly increasing width.
+							// Only increase if doing so doesn't cause forced scrollbar again.
+							const nextScale = (availW + sbw) / unscaledVp.width;
+							if (unscaledVp.height * nextScale <= availH) {
+								scale = nextScale;
+							}
+						}
+					}
+				}
+				return scale;
 			}
 			if (currentZoom === "fit-page") {
 				return Math.min(availW / unscaledVp.width, availH / unscaledVp.height);
