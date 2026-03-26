@@ -146,10 +146,10 @@ describe("getWebviewContent", () => {
 		);
 	});
 
-	it("replaces {{CSP_SOURCE}} token", () => {
+	it("replaces {{CSP}} token (no literal {{CSP}} in output)", () => {
 		assert.ok(
-			!render().includes("{{CSP_SOURCE}}"),
-			"{{CSP_SOURCE}} token still present",
+			!render().includes("{{CSP}}"),
+			"{{CSP}} token still present in output",
 		);
 	});
 
@@ -165,6 +165,13 @@ describe("getWebviewContent", () => {
 		assert.ok(
 			render().includes(`nonce-${stubNonce}`),
 			"CSP nonce attribute not found in output",
+		);
+	});
+
+	it("CSP contains connect-src with the stub cspSource value", () => {
+		assert.ok(
+			render().includes("connect-src https://file+.vscode-resource.vscode-cdn.net"),
+			"connect-src not found with correct cspSource in output",
 		);
 	});
 

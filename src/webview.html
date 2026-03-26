@@ -1,28 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<!--
-		CSP notes:
-		- script-src: nonce + strict-dynamic — nonce covers the inline module; strict-dynamic
-		  propagates trust to ES module imports (pdf.mjs) loaded by the nonced script
-		- worker-src: blob: for fallback + CSP_SOURCE for the vscode-resource worker URL
-		- connect-src: CSP_SOURCE so PDF.js can fetch the PDF file via fetch()
-		- img-src: data: for PDF-embedded images rendered via canvas
-		- style-src unsafe-inline: VS Code CSS variables require inline styles
+		CSP is built entirely in extension.js from (nonce, webview.cspSource) and
+		injected as a single {{CSP}} token — no partial tokens here.
+		  script-src: nonce + strict-dynamic (covers ES module imports)
+		  worker-src: blob: + cspSource (covers vscode-resource worker)
+		  connect-src: cspSource (PDF.js fetches the PDF via fetch())
+		  img-src: data: (PDF-embedded images rendered to canvas)
+		  style-src unsafe-inline (VS Code CSS variables need inline styles)
 	-->
-	<meta http-equiv="Content-Security-Policy" content="
-		default-src 'none';
-		script-src 'nonce-{{NONCE}}' 'strict-dynamic';
-		worker-src blob: {{CSP_SOURCE}};
-		connect-src {{CSP_SOURCE}};
-		style-src 'unsafe-inline';
-		img-src data:;
-	">
+	<meta http-equiv="Content-Security-Policy" content="{{CSP}}">
 	<title>PDF Viewer</title>
 	<style>
-		* { box-sizing: border-box; margin: 0; padding: 0; }
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
 
 		body {
 			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -42,14 +40,14 @@
 			gap: 8px;
 			padding: 6px 12px;
 			background: var(--vscode-editorWidget-background);
-			border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+			border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
 			flex-shrink: 0;
 			user-select: none;
 		}
 
 		.toolbar button {
 			background: transparent;
-			border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+			border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
 			color: var(--vscode-editor-foreground);
 			border-radius: 4px;
 			padding: 3px 8px;
@@ -71,7 +69,7 @@
 
 		.toolbar button:disabled:hover {
 			background: transparent;
-			border-color: var(--vscode-widget-border, rgba(128,128,128,0.2));
+			border-color: var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
 		}
 
 		.page-input {
@@ -79,7 +77,7 @@
 			text-align: center;
 			background: var(--vscode-input-background);
 			color: var(--vscode-input-foreground);
-			border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+			border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.3));
 			border-radius: 4px;
 			padding: 2px 4px;
 			font-size: 0.85em;
@@ -94,14 +92,14 @@
 		.toolbar-sep {
 			width: 1px;
 			height: 16px;
-			background: var(--vscode-widget-border, rgba(128,128,128,0.2));
+			background: var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
 			margin: 0 2px;
 		}
 
 		.zoom-select {
 			background: var(--vscode-input-background);
 			color: var(--vscode-input-foreground);
-			border: 1px solid var(--vscode-input-border, rgba(128,128,128,0.3));
+			border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.3));
 			border-radius: 4px;
 			padding: 2px 4px;
 			font-size: 0.85em;
@@ -122,8 +120,9 @@
 
 		#pdf-canvas {
 			display: block;
-			box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-			background: #fff; /* PDF page background is always white */
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+			background: #fff;
+			/* PDF page background is always white */
 		}
 
 		/* ── Empty / error state ──────────────────────────────── */
@@ -140,18 +139,19 @@
 		}
 	</style>
 </head>
+
 <body>
 
 	<!-- Toolbar -->
 	<div class="toolbar">
 		<button id="btn-prev" aria-label="Previous page" title="Previous page (←)">&#8249;</button>
-		<input  id="page-input" class="page-input" type="number" min="1" aria-label="Current page" />
-		<span   id="page-total" class="page-label">/ —</span>
+		<input id="page-input" class="page-input" type="number" min="1" aria-label="Current page" />
+		<span id="page-total" class="page-label">/ —</span>
 		<button id="btn-next" aria-label="Next page" title="Next page (→)">&#8250;</button>
 
 		<div class="toolbar-sep"></div>
 
-		<button id="btn-zoom-out"  aria-label="Zoom out"  title="Zoom out (-)">−</button>
+		<button id="btn-zoom-out" aria-label="Zoom out" title="Zoom out (-)">−</button>
 		<select id="zoom-select" class="zoom-select" aria-label="Zoom level">
 			<option value="fit-width">Fit Width</option>
 			<option value="fit-page">Fit Page</option>
@@ -162,7 +162,7 @@
 			<option value="150">150%</option>
 			<option value="200">200%</option>
 		</select>
-		<button id="btn-zoom-in"   aria-label="Zoom in"   title="Zoom in (+)">+</button>
+		<button id="btn-zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
 	</div>
 
 	<!-- PDF canvas viewport -->
@@ -179,19 +179,19 @@
 		pdfjsLib.GlobalWorkerOptions.workerSrc = "{{WORKER_URI}}";
 
 		// ── State ──────────────────────────────────────────────────────
-		let pdfDoc      = null;
+		let pdfDoc = null;
 		let currentPage = 1;
 		let currentZoom = "{{DEFAULT_ZOOM}}";
-		let renderTask  = null;   // Track in-flight renders to cancel on nav
+		let renderTask = null;   // Track in-flight renders to cancel on nav
 
-		const canvas    = document.getElementById("pdf-canvas");
-		const ctx       = canvas.getContext("2d");
-		const viewport  = document.getElementById("viewport");
-		const btnPrev   = document.getElementById("btn-prev");
-		const btnNext   = document.getElementById("btn-next");
+		const canvas = document.getElementById("pdf-canvas");
+		const ctx = canvas.getContext("2d");
+		const viewport = document.getElementById("viewport");
+		const btnPrev = document.getElementById("btn-prev");
+		const btnNext = document.getElementById("btn-next");
 		const pageInput = document.getElementById("page-input");
 		const pageTotal = document.getElementById("page-total");
-		const zoomSel   = document.getElementById("zoom-select");
+		const zoomSel = document.getElementById("zoom-select");
 
 		// ── Zoom helpers ───────────────────────────────────────────────
 
@@ -206,8 +206,8 @@
 
 		async function computeScale(pdfPage) {
 			const unscaledVp = pdfPage.getViewport({ scale: 1 });
-			const availW     = viewport.clientWidth  - 32;  // 16px padding each side
-			const availH     = viewport.clientHeight - 32;
+			const availW = viewport.clientWidth - 32;  // 16px padding each side
+			const availH = viewport.clientHeight - 32;
 			if (currentZoom === "fit-width") {
 				return availW / unscaledVp.width;
 			}
@@ -228,11 +228,11 @@
 				renderTask = null;
 			}
 
-			const page  = await pdfDoc.getPage(pageNum);
+			const page = await pdfDoc.getPage(pageNum);
 			const scale = await computeScale(page);
-			const pv    = page.getViewport({ scale });
+			const pv = page.getViewport({ scale });
 
-			canvas.width  = pv.width;
+			canvas.width = pv.width;
 			canvas.height = pv.height;
 
 			renderTask = page.render({ canvasContext: ctx, viewport: pv });
@@ -253,10 +253,10 @@
 		function updateToolbar() {
 			if (!pdfDoc) return;
 			const total = pdfDoc.numPages;
-			pageInput.value   = currentPage;
+			pageInput.value = currentPage;
 			pageTotal.textContent = "/ " + total;
-			btnPrev.disabled  = currentPage <= 1;
-			btnNext.disabled  = currentPage >= total;
+			btnPrev.disabled = currentPage <= 1;
+			btnNext.disabled = currentPage >= total;
 		}
 
 		function showStatus(msg) {
@@ -308,7 +308,7 @@
 		let scrollCooldown = false;
 		viewport.addEventListener("wheel", (e) => {
 			// Only intercept when at the scroll boundary, to allow normal scrolling
-			const atTop    = viewport.scrollTop === 0;
+			const atTop = viewport.scrollTop === 0;
 			const atBottom = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 1;
 			if (e.deltaY > 0 && atBottom) {
 				if (scrollCooldown) return;
@@ -342,7 +342,7 @@
 			if (pdfDoc) renderPage(currentPage);
 		}
 
-		document.getElementById("btn-zoom-in").addEventListener("click",  () => adjustZoom(+1));
+		document.getElementById("btn-zoom-in").addEventListener("click", () => adjustZoom(+1));
 		document.getElementById("btn-zoom-out").addEventListener("click", () => adjustZoom(-1));
 		zoomSel.addEventListener("change", () => setZoom(zoomSel.value));
 
@@ -377,4 +377,5 @@
 		vscode.postMessage({ type: "ready" });
 	</script>
 </body>
+
 </html>
