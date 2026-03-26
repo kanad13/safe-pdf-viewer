@@ -171,21 +171,10 @@
 			padding: 32px;
 		}
 
-		/* ── Search bar ───────────────────────────────────────── */
-
-		.search-bar {
-			display: none;
-			align-items: center;
-			gap: 6px;
-			padding: 4px 12px;
-			background: var(--vscode-editorWidget-background);
-			border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
-			flex-shrink: 0;
-		}
+		/* ── Search (inline in toolbar) ──────────────────────── */
 
 		.search-input {
-			flex: 1;
-			max-width: 240px;
+			width: 180px;
 			background: var(--vscode-input-background);
 			color: var(--vscode-input-foreground);
 			border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.3));
@@ -197,20 +186,21 @@
 		.search-count {
 			font-size: 0.8em;
 			color: var(--vscode-descriptionForeground);
-			min-width: 60px;
+			min-width: 56px;
 			white-space: nowrap;
 		}
 
-		/* ── Search highlights ────────────────────────────────── */
+		/* ── Search highlights (injected <mark> elements) ─────── */
 
-		.textLayer .search-highlight {
-			background: rgba(255, 200, 0, 0.4) !important;
+		.textLayer mark.search-mark {
+			color: transparent;
+			background: rgba(255, 200, 0, 0.45);
 			border-radius: 2px;
 		}
 
-		.textLayer .search-highlight-current {
-			background: rgba(255, 120, 0, 0.5) !important;
-			outline: 1px solid rgba(255, 120, 0, 0.8);
+		.textLayer mark.search-mark.search-highlight-current {
+			background: rgba(255, 120, 0, 0.55);
+			outline: 1px solid rgba(255, 120, 0, 0.85);
 		}
 	</style>
 </head>
@@ -229,15 +219,14 @@
 		<button id="btn-zoom-out" aria-label="Zoom out" title="Zoom out (-)">−</button>
 		<button id="btn-zoom-fit" aria-label="Fit Page" title="Fit Page">Fit Page</button>
 		<button id="btn-zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
-	</div>
 
-	<!-- Search bar (hidden by default; shown on Ctrl+F / Cmd+F) -->
-	<div id="search-bar" class="search-bar">
-		<input id="search-input" class="search-input" type="text" placeholder="Find in document…" aria-label="Find in document" autocomplete="off" spellcheck="false" />
+		<div class="toolbar-sep"></div>
+
+		<input id="search-input" class="search-input" type="text" placeholder="Find…" aria-label="Find in document"
+			autocomplete="off" spellcheck="false" />
 		<span id="search-count" class="search-count" aria-live="polite"></span>
 		<button id="btn-search-prev" aria-label="Previous match" title="Previous match (Shift+Enter)">↑</button>
 		<button id="btn-search-next" aria-label="Next match" title="Next match (Enter)">↓</button>
-		<button id="btn-search-close" aria-label="Close search" title="Close search (Escape)">✕</button>
 	</div>
 
 	<!-- PDF canvas viewport -->
@@ -275,12 +264,10 @@
 		const btnZoomFit = document.getElementById("btn-zoom-fit");
 
 		// ── Search state ───────────────────────────────────────────────
-		const searchBar = document.getElementById("search-bar");
 		const searchInput = document.getElementById("search-input");
 		const searchCount = document.getElementById("search-count");
 		const btnSearchPrev = document.getElementById("btn-search-prev");
 		const btnSearchNext = document.getElementById("btn-search-next");
-		const btnSearchClose = document.getElementById("btn-search-close");
 
 		let searchIndex = [];   // [{page, fullText}] — built after PDF loads
 		let searchMatches = []; // [{page, occurrenceOnPage}] — global match list
@@ -421,10 +408,10 @@
 
 		// Keyboard navigation
 		document.addEventListener("keydown", (e) => {
-			// Open search bar with Ctrl+F / Cmd+F
+			// Focus search bar with Ctrl+F / Cmd+F
 			if ((e.ctrlKey || e.metaKey) && e.key === "f") {
 				e.preventDefault();
-				openSearchBar();
+				focusSearch();
 				return;
 			}
 			if (document.activeElement === pageInput) return;
@@ -548,32 +535,52 @@
 		}
 
 		function applySearchHighlights(query) {
-			// Remove any existing highlights
-			textLayerDiv.querySelectorAll(".search-highlight, .search-highlight-current").forEach(el => {
-				el.classList.remove("search-highlight", "search-highlight-current");
+			// Unwrap any previously injected <mark> elements, restoring plain text nodes
+			textLayerDiv.querySelectorAll("mark.search-mark").forEach(mark => {
+				mark.replaceWith(mark.textContent);
 			});
+			textLayerDiv.normalize(); // merge adjacent text nodes left by unwrapping
 			if (!query) return;
 			const lq = query.toLowerCase();
 			const currentOcc = (searchMatches[searchMatchIdx] && searchMatches[searchMatchIdx].page === currentPage)
 				? searchMatches[searchMatchIdx].occurrenceOnPage
 				: -1;
 			const spans = textLayerDiv.querySelectorAll("span");
-			let spanOcc = 0;
+			let occIdx = 0;
 			let currentEl = null;
 			for (const span of spans) {
-				if (span.textContent.toLowerCase().includes(lq)) {
-					span.classList.add("search-highlight");
-					if (spanOcc === currentOcc) {
-						span.classList.add("search-highlight-current");
-						currentEl = span;
+				// Skip spans that contain child elements (e.g. nested PDF.js markup)
+				if (span.querySelector("*")) continue;
+				const text = span.textContent;
+				const textLower = text.toLowerCase();
+				if (!textLower.includes(lq)) continue;
+				// Rebuild span content: plain text nodes interleaved with <mark> wrappers
+				const fragment = document.createDocumentFragment();
+				let pos = 0;
+				let matchStart;
+				while ((matchStart = textLower.indexOf(lq, pos)) !== -1) {
+					if (matchStart > pos) {
+						fragment.appendChild(document.createTextNode(text.slice(pos, matchStart)));
 					}
-					spanOcc++;
+					const mark = document.createElement("mark");
+					mark.className = occIdx === currentOcc
+						? "search-mark search-highlight-current"
+						: "search-mark";
+					mark.textContent = text.slice(matchStart, matchStart + lq.length);
+					if (occIdx === currentOcc) currentEl = mark;
+					fragment.appendChild(mark);
+					occIdx++;
+					pos = matchStart + lq.length;
 				}
+				if (pos < text.length) {
+					fragment.appendChild(document.createTextNode(text.slice(pos)));
+				}
+				span.replaceChildren(fragment);
 			}
 			if (currentEl) {
 				currentEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
-			} else if (spanOcc > 0) {
-				const first = textLayerDiv.querySelector(".search-highlight");
+			} else if (occIdx > 0) {
+				const first = textLayerDiv.querySelector(".search-mark");
 				if (first) first.scrollIntoView({ block: "nearest", behavior: "smooth" });
 			}
 		}
@@ -590,14 +597,12 @@
 			searchCount.textContent = `${searchMatchIdx + 1} of ${searchMatches.length}`;
 		}
 
-		function openSearchBar() {
-			searchBar.style.display = "flex";
+		function focusSearch() {
 			searchInput.focus();
 			searchInput.select();
 		}
 
-		function closeSearchBar() {
-			searchBar.style.display = "none";
+		function clearSearch() {
 			searchInput.value = "";
 			searchMatches = [];
 			searchMatchIdx = -1;
@@ -619,7 +624,8 @@
 				}
 			} else if (e.key === "Escape") {
 				e.preventDefault();
-				closeSearchBar();
+				clearSearch();
+				searchInput.blur();
 			}
 			// Prevent navigation keys from bubbling to the main keydown handler
 			e.stopPropagation();
@@ -627,7 +633,6 @@
 
 		btnSearchPrev.addEventListener("click", () => navigateToMatch(searchMatchIdx - 1));
 		btnSearchNext.addEventListener("click", () => navigateToMatch(searchMatchIdx + 1));
-		btnSearchClose.addEventListener("click", closeSearchBar);
 
 		// ── VS Code message channel ─────────────────────────────────────
 		// Mirrors mermaid-slideshow postMessage pattern.

@@ -52,7 +52,7 @@ Open VS Code Settings (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux) and search f
 - Page-by-page navigation
 - Zoom controls (fit-page, +/−, percentage)
 - Text selection and copy
-- In-document text search (`Ctrl+F` / `Cmd+F`)
+- Inline document search (always available on the toolbar, or focus via `Ctrl+F` / `Cmd+F`)
 - Dark and light mode — respects VS Code theme
 
 ## Intentional Exclusions

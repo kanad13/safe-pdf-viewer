@@ -134,9 +134,9 @@ searchIndex = [{ page: 1, fullText: "…" }, { page: 2, fullText: "…" }, …]
 
 **Stage 2 — Search and highlight:**
 
-`runSearch(query)` scans `searchIndex` to build a flat `searchMatches = [{ page, occurrenceOnPage }]` list. `navigateToMatch(idx)` navigates to the page of the target match. After the text layer renders, `applySearchHighlights(query)` walks the `.textLayer span` elements, applies `.search-highlight` to all spans containing the query, and `.search-highlight-current` to the specific occurrence being navigated to.
+`runSearch(query)` scans `searchIndex` to build a flat `searchMatches = [{ page, occurrenceOnPage }]` list. `navigateToMatch(idx)` navigates to the page of the target match. After the text layer renders, `applySearchHighlights(query)` walks the `.textLayer span` elements. Instead of highlighting the entire span, it reconstructs the span's content using a `DocumentFragment`, interleaving plain text nodes with precise `<mark class="search-mark">` elements for exact substring matches. The specific occurrence being navigated to receives `.search-highlight-current`.
 
-**Highlight CSS:** Uses semi-transparent `rgba` background on text-layer spans — safe under the existing CSP (`style-src 'unsafe-inline'`). No external resources needed.
+**Highlight CSS:** Uses semi-transparent `rgba` background for `.search-mark` elements within the text layer — safe under the existing CSP. No external resources needed.
 
 **Security note:** The search text is never executed, injected into the DOM as HTML, or sent outside the webview. It is used only for string comparison against in-memory text content.
 

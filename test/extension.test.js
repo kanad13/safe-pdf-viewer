@@ -259,10 +259,16 @@ describe("getWebviewContent", () => {
 
 	// ── Phase 6 — In-document search ──────────────────────────────────────
 
-	it("search bar element is present in webview HTML", () => {
+	it("search input is embedded directly in the toolbar", () => {
+		const html = render();
+		// There is no longer a separate #search-bar div — input lives inside .toolbar
 		assert.ok(
-			render().includes("id=\"search-bar\""),
-			"#search-bar not found in webview HTML",
+			!html.includes("id=\"search-bar\""),
+			"#search-bar div should not exist (search is inline in toolbar)",
+		);
+		assert.ok(
+			html.includes("id=\"search-input\""),
+			"#search-input not found in webview HTML",
 		);
 	});
 
@@ -273,11 +279,20 @@ describe("getWebviewContent", () => {
 		);
 	});
 
-	it("search prev/next/close buttons are present in webview HTML", () => {
+	it("search prev/next buttons are present in webview HTML (no close button)", () => {
 		const html = render();
-		assert.ok(html.includes("id=\"btn-search-prev\""), "#btn-search-prev not found");
-		assert.ok(html.includes("id=\"btn-search-next\""), "#btn-search-next not found");
-		assert.ok(html.includes("id=\"btn-search-close\""), "#btn-search-close not found");
+		assert.ok(
+			html.includes("id=\"btn-search-prev\""),
+			"#btn-search-prev not found",
+		);
+		assert.ok(
+			html.includes("id=\"btn-search-next\""),
+			"#btn-search-next not found",
+		);
+		assert.ok(
+			!html.includes("id=\"btn-search-close\""),
+			"#btn-search-close should not exist (toolbar is always visible)",
+		);
 	});
 
 	it("search count element is present in webview HTML", () => {
@@ -302,16 +317,36 @@ describe("getWebviewContent", () => {
 		);
 	});
 
-	it("openSearchBar and closeSearchBar functions are present in webview HTML", () => {
+	it("focusSearch and clearSearch replace open/closeSearchBar", () => {
 		const html = render();
-		assert.ok(html.includes("openSearchBar"), "openSearchBar not found in webview HTML");
-		assert.ok(html.includes("closeSearchBar"), "closeSearchBar not found in webview HTML");
+		assert.ok(
+			html.includes("focusSearch"),
+			"focusSearch not found in webview HTML",
+		);
+		assert.ok(
+			html.includes("clearSearch"),
+			"clearSearch not found in webview HTML",
+		);
+		assert.ok(
+			!html.includes("openSearchBar"),
+			"openSearchBar should not exist",
+		);
+		assert.ok(
+			!html.includes("closeSearchBar"),
+			"closeSearchBar should not exist",
+		);
 	});
 
 	it("Ctrl+F / Cmd+F handler opens search bar (ctrlKey/metaKey check present)", () => {
 		const html = render();
-		assert.ok(html.includes("ctrlKey"), "ctrlKey check not found for Ctrl+F shortcut");
-		assert.ok(html.includes("metaKey"), "metaKey check not found for Cmd+F shortcut");
+		assert.ok(
+			html.includes("ctrlKey"),
+			"ctrlKey check not found for Ctrl+F shortcut",
+		);
+		assert.ok(
+			html.includes("metaKey"),
+			"metaKey check not found for Cmd+F shortcut",
+		);
 	});
 
 	it("buildSearchIndex function is present in webview HTML", () => {
@@ -335,10 +370,10 @@ describe("getWebviewContent", () => {
 		);
 	});
 
-	it("search input keydown handler supports Escape to close", () => {
+	it("search input keydown handler supports Escape to clear", () => {
 		assert.ok(
-			render().includes("closeSearchBar"),
-			"closeSearchBar call not found — Escape-to-close not wired",
+			render().includes("clearSearch"),
+			"clearSearch call not found — Escape-to-clear not wired",
 		);
 	});
 

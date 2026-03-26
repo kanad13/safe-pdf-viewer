@@ -13,64 +13,53 @@ async function waitForPdfRender(page) {
 }
 
 test.describe("In-document Search (Phase 6)", () => {
-	test("search bar is hidden on initial load", async ({ page }) => {
+	test("search input is visible inline on initial load", async ({ page }) => {
 		await page.goto("http://localhost:8080/");
 		await waitForPdfRender(page);
 
-		const searchBar = page.locator("#search-bar");
-		// The search bar must be in the DOM but not visible
-		await expect(searchBar).toBeAttached();
-		await expect(searchBar).toBeHidden();
+		const searchInput = page.locator("#search-input");
+		// The search input must be in the DOM and visible inline
+		await expect(searchInput).toBeAttached();
+		await expect(searchInput).toBeVisible();
 	});
 
-	test("Ctrl+F opens the search bar and focuses the input", async ({ page }) => {
+	test("Ctrl+F focuses the search input", async ({ page }) => {
 		await page.goto("http://localhost:8080/");
 		await waitForPdfRender(page);
 
-		const searchBar = page.locator("#search-bar");
-		await expect(searchBar).toBeHidden();
+		const searchInput = page.locator("#search-input");
+		
+		// Focus somewhere else first
+		await page.locator("#page-input").click();
+		await expect(searchInput).not.toBeFocused();
 
 		await page.keyboard.press("Control+f");
 
-		await expect(searchBar).toBeVisible();
-		const searchInput = page.locator("#search-input");
+		await expect(searchInput).toBeVisible();
 		await expect(searchInput).toBeFocused();
 	});
 
-	test("Escape closes the search bar", async ({ page }) => {
+	test("Escape clears the search input and removes focus", async ({ page }) => {
 		await page.goto("http://localhost:8080/");
 		await waitForPdfRender(page);
 
-		await page.keyboard.press("Control+f");
-		const searchBar = page.locator("#search-bar");
-		await expect(searchBar).toBeVisible();
+		const searchInput = page.locator("#search-input");
+		await searchInput.fill("test");
+		await expect(searchInput).toHaveValue("test");
 
-		// Escape while search input is focused should close the bar
+		// Escape while search input is focused should clear and blur it
 		await page.keyboard.press("Escape");
-		await expect(searchBar).toBeHidden();
+		await expect(searchInput).toHaveValue("");
+		await expect(searchInput).not.toBeFocused();
 	});
 
-	test("close button hides the search bar", async ({ page }) => {
+	test("search elements (prev, next, input, count) are present inline", async ({ page }) => {
 		await page.goto("http://localhost:8080/");
 		await waitForPdfRender(page);
 
-		await page.keyboard.press("Control+f");
-		const searchBar = page.locator("#search-bar");
-		await expect(searchBar).toBeVisible();
-
-		await page.locator("#btn-search-close").click();
-		await expect(searchBar).toBeHidden();
-	});
-
-	test("search elements (prev, next, close, count) are present when bar is open", async ({ page }) => {
-		await page.goto("http://localhost:8080/");
-		await waitForPdfRender(page);
-
-		await page.keyboard.press("Control+f");
-
+		await expect(page.locator("#search-input")).toBeVisible();
 		await expect(page.locator("#btn-search-prev")).toBeVisible();
 		await expect(page.locator("#btn-search-next")).toBeVisible();
-		await expect(page.locator("#btn-search-close")).toBeVisible();
 		await expect(page.locator("#search-count")).toBeAttached();
 	});
 
@@ -81,14 +70,11 @@ test.describe("In-document Search (Phase 6)", () => {
 		// Allow time for buildSearchIndex to complete across all PDF pages
 		await page.waitForTimeout(2000);
 
-		await page.keyboard.press("Control+f");
-
 		const searchInput = page.locator("#search-input");
 		await expect(searchInput).toBeVisible();
 
-		// "the" is extremely common; if the PDF has any English text this will match.
-		// But even "No results" is a non-empty count string, satisfying the assertion.
-		await searchInput.fill("the");
+		// Searching for 'lorem' which appears in the test PDF.
+		await searchInput.fill("lorem");
 
 		const searchCount = page.locator("#search-count");
 		// Wait for count to be populated (input event triggers runSearch)
@@ -103,9 +89,8 @@ test.describe("In-document Search (Phase 6)", () => {
 		const pageInput = page.locator("#page-input");
 		await expect(pageInput).toHaveValue("1");
 
-		// Open search bar (focuses search input)
-		await page.keyboard.press("Control+f");
 		const searchInput = page.locator("#search-input");
+		await searchInput.click();
 		await expect(searchInput).toBeFocused();
 
 		// Press ArrowRight — should NOT flip to page 2
@@ -113,20 +98,25 @@ test.describe("In-document Search (Phase 6)", () => {
 		await expect(pageInput).toHaveValue("1");
 	});
 
-	test("closing search bar clears highlights", async ({ page }) => {
+	test("clearing search input removes highlights", async ({ page }) => {
 		await page.goto("http://localhost:8080/");
 		await waitForPdfRender(page);
 		await page.waitForTimeout(2000);
 
-		await page.keyboard.press("Control+f");
 		const searchInput = page.locator("#search-input");
-		await searchInput.fill("the");
+		await searchInput.fill("lorem");
 
-		// Press close
-		await page.locator("#btn-search-close").click();
+		const searchCount = page.locator("#search-count");
+		await expect(searchCount).not.toHaveText("", { timeout: 10000 });
 
-		// After closing, no .search-highlight elements should remain
-		const highlights = page.locator(".search-highlight");
+		// Wait for search mark to appear
+		const highlights = page.locator("mark.search-mark");
+		await expect(highlights.first()).toBeAttached();
+
+		// Press escape
+		await page.keyboard.press("Escape");
+
+		// After clearing, no mark.search-mark elements should remain
 		await expect(highlights).toHaveCount(0);
 	});
 });
