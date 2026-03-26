@@ -79,7 +79,7 @@ State is closure-scoped inside `resolveCustomEditor`, keeping it per-panel:
 
 - `currentPage` — 1-based index of the visible page
 - `totalPages` — populated after PDF loads
-- `currentZoom` — active zoom (string: `"fit-page"`, `"fit-page"`, or `"125"` etc.)
+- `currentZoom` — active zoom (string: `"fit-page"`, or `"125"` etc.)
 - `pdfUri` — the VS Code `Uri` of the open file
 
 The webview-side state (canvas content, scroll position) lives entirely in the webview. The extension host does not try to mirror it.
