@@ -256,4 +256,96 @@ describe("getWebviewContent", () => {
 	it("deactivate does not throw", () => {
 		assert.doesNotThrow(() => deactivate());
 	});
+
+	// ── Phase 6 — In-document search ──────────────────────────────────────
+
+	it("search bar element is present in webview HTML", () => {
+		assert.ok(
+			render().includes("id=\"search-bar\""),
+			"#search-bar not found in webview HTML",
+		);
+	});
+
+	it("search input element is present in webview HTML", () => {
+		assert.ok(
+			render().includes("id=\"search-input\""),
+			"#search-input not found in webview HTML",
+		);
+	});
+
+	it("search prev/next/close buttons are present in webview HTML", () => {
+		const html = render();
+		assert.ok(html.includes("id=\"btn-search-prev\""), "#btn-search-prev not found");
+		assert.ok(html.includes("id=\"btn-search-next\""), "#btn-search-next not found");
+		assert.ok(html.includes("id=\"btn-search-close\""), "#btn-search-close not found");
+	});
+
+	it("search count element is present in webview HTML", () => {
+		assert.ok(
+			render().includes("id=\"search-count\""),
+			"#search-count not found in webview HTML",
+		);
+	});
+
+	it("search-highlight CSS class is defined in webview HTML", () => {
+		const html = render();
+		assert.ok(
+			html.includes("search-highlight"),
+			"search-highlight CSS class not found in webview HTML",
+		);
+	});
+
+	it("search-highlight-current CSS class is defined in webview HTML", () => {
+		assert.ok(
+			render().includes("search-highlight-current"),
+			"search-highlight-current CSS class not found in webview HTML",
+		);
+	});
+
+	it("openSearchBar and closeSearchBar functions are present in webview HTML", () => {
+		const html = render();
+		assert.ok(html.includes("openSearchBar"), "openSearchBar not found in webview HTML");
+		assert.ok(html.includes("closeSearchBar"), "closeSearchBar not found in webview HTML");
+	});
+
+	it("Ctrl+F / Cmd+F handler opens search bar (ctrlKey/metaKey check present)", () => {
+		const html = render();
+		assert.ok(html.includes("ctrlKey"), "ctrlKey check not found for Ctrl+F shortcut");
+		assert.ok(html.includes("metaKey"), "metaKey check not found for Cmd+F shortcut");
+	});
+
+	it("buildSearchIndex function is present in webview HTML", () => {
+		assert.ok(
+			render().includes("buildSearchIndex"),
+			"buildSearchIndex not found in webview HTML",
+		);
+	});
+
+	it("runSearch function is present in webview HTML", () => {
+		assert.ok(
+			render().includes("runSearch"),
+			"runSearch not found in webview HTML",
+		);
+	});
+
+	it("navigateToMatch function is present in webview HTML", () => {
+		assert.ok(
+			render().includes("navigateToMatch"),
+			"navigateToMatch not found in webview HTML",
+		);
+	});
+
+	it("search input keydown handler supports Escape to close", () => {
+		assert.ok(
+			render().includes("closeSearchBar"),
+			"closeSearchBar call not found — Escape-to-close not wired",
+		);
+	});
+
+	it("search nav keys are blocked from bubbling when search input focused", () => {
+		assert.ok(
+			render().includes("stopPropagation"),
+			"stopPropagation not found — nav key leak from search input possible",
+		);
+	});
 });

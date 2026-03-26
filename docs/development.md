@@ -139,7 +139,13 @@ Test in the dev host:
 - Test zoom: Fit Page button, + (zoom in), − (zoom out)
 - Test jump-to-page input
 - Test text selection and copy (`Ctrl+C`)
-- Test in-document search (`Ctrl+F`)
+- Test in-document search (`Ctrl+F`):
+  - Bar opens, search input receives focus
+  - Typing highlights matching spans with a yellow/orange indicator
+  - Enter / ↓ button cycles forward; Shift+Enter / ↑ button cycles backward
+  - Match counter shows "X of Y" or "No results"
+  - Escape and the ✕ button both close the bar and clear highlights
+  - Arrow-key page navigation does **not** fire while search input is focused
 - Test dark theme: switch VS Code to a dark theme, verify viewer chrome updates
 - Test zoom setting: change `safePdfViewer.defaultZoom` in Settings (e.g. `"100"` or `"fit-page"`), close and reopen PDF
 - Check Developer Tools for errors (`Help > Toggle Developer Tools`)
