@@ -116,6 +116,30 @@ PDF.js is consumed as a static local bundle, not as an npm dependency.
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUri; // webview URI to lib/pdfjs/pdf.worker.mjs
 ```
 
+**Available PDF.js exports (from `pdf.mjs`):**
+
+`getDocument`, `TextLayer`, `GlobalWorkerOptions`, `RenderingCancelledException`, and other rendering primitives. The viewer-specific classes (`PDFFindController`, `EventBus`) are **not** exported — see In-Document Search below for how search is handled without them.
+
+## In-Document Search
+
+In-document search (`Ctrl+F` / `Cmd+F`) is implemented without `PDFFindController` (not exported by the bundled `pdf.mjs`). Instead it uses a two-stage approach:
+
+**Stage 1 — Text indexing (after PDF load):**
+
+`buildSearchIndex()` iterates all pages, calls `page.getTextContent()`, and stores the concatenated text per page:
+
+```javascript
+searchIndex = [{ page: 1, fullText: "…" }, { page: 2, fullText: "…" }, …]
+```
+
+**Stage 2 — Search and highlight:**
+
+`runSearch(query)` scans `searchIndex` to build a flat `searchMatches = [{ page, occurrenceOnPage }]` list. `navigateToMatch(idx)` navigates to the page of the target match. After the text layer renders, `applySearchHighlights(query)` walks the `.textLayer span` elements, applies `.search-highlight` to all spans containing the query, and `.search-highlight-current` to the specific occurrence being navigated to.
+
+**Highlight CSS:** Uses semi-transparent `rgba` background on text-layer spans — safe under the existing CSP (`style-src 'unsafe-inline'`). No external resources needed.
+
+**Security note:** The search text is never executed, injected into the DOM as HTML, or sent outside the webview. It is used only for string comparison against in-memory text content.
+
 ## Guidelines for Changes
 
 **Safe to modify:** CSS styling, zoom UI, toolbar layout, page counter, keyboard shortcuts.

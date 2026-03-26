@@ -324,12 +324,15 @@ Playwright can load the `webview.html` as a static page in a real browser, injec
 
 ### Tasks
 
-- [ ] Add search input field to toolbar (hidden by default)
-- [ ] Toggle search bar on `Ctrl+F` / `Cmd+F` keydown; close on `Escape`
-- [ ] Use PDF.js `PDFFindController` to drive search with `findagain` / `find` events
-- [ ] Highlight matches on current page; show match count (`"3 of 12"`)
-- [ ] Wire `Enter` (next match) and `Shift+Enter` (previous match) in search input
-- [ ] Ensure search bar does not conflict with keyboard nav (suppress nav keys when search is focused)
+- [x] Add search input field to toolbar (hidden by default)
+- [x] Toggle search bar on `Ctrl+F` / `Cmd+F` keydown; close on `Escape`
+- [x] Build per-page text index (`buildSearchIndex`) after PDF loads using `page.getTextContent()`
+- [x] `runSearch(query)` scans index to produce global match list with page + occurrence info
+- [x] Highlight matches on current page via `.search-highlight` / `.search-highlight-current` CSS classes applied to text-layer spans
+- [x] Show match count (`"3 of 12"` or `"No results"`)
+- [x] Wire `Enter` (next match) and `Shift+Enter` (previous match) in search input
+- [x] Ensure search bar does not conflict with keyboard nav (`stopPropagation` + activeElement guard)
+- [x] Close button clears highlights and hides bar
 
 ### Manual Tests
 
@@ -337,17 +340,114 @@ Playwright can load the `webview.html` as a static page in a real browser, injec
 - Type a word — matches highlighted on current page
 - `Enter`/`Shift+Enter` cycles through matches; counter updates
 - `Escape` closes search bar and clears highlights
-- Search works across pages (PDF.js find controller handles cross-page)
+- Prev (↑) and Next (↓) buttons cycle matches
+- Navigation arrow keys do not flip pages while search input is focused
+
+### Exit Gate
+
+- [x] `npm test` passes — 36/36 unit tests (includes 13 new Phase 6 structural tests)
+- [x] `npm run test:e2e` passes — 15/15 E2E tests (includes 7 new search specs)
+- [x] Commit and merge: `feat: in-document search via text index and CSS highlights`
+
+**✅ Phase 6 COMPLETE**
+
+---
+
+## Phase 7 — Thumbnail Panel (v0.2.0)
+
+**Goal:** Side panel showing page thumbnails for quick navigation.
+
+**Branch:** `feat/thumbnails`
+
+### Tasks
+
+- [ ] Add a resizable side panel (left or right of the main viewport) using a split-pane layout
+- [ ] Render low-resolution thumbnails for each page using PDF.js (`page.render` at small scale)
+- [ ] Clicking a thumbnail navigates to that page
+- [ ] Highlight the currently viewed page thumbnail
+- [ ] Panel visibility toggled via toolbar button; state persists across reloads (VS Code `setState`)
+- [ ] Thumbnails lazy-load as the user scrolls the panel (intersection observer)
+
+### Manual Tests
+
+- Thumbnail panel toggles open/closed
+- Clicking a thumbnail jumps to the correct page
+- Current page thumbnail is visually highlighted
+- Scrolling the thumbnail panel lazy-loads additional thumbnails
 
 ### Exit Gate
 
 - `npm test` passes
-- All manual search tests pass
-- Commit and merge: `feat: in-document search via PDF.js find controller`
+- `npm run test:e2e` passes
+- Manual thumbnail navigation verified
+- Commit and merge: `feat: thumbnail panel for quick page navigation`
 
 ---
 
-## Phase 7 — First Public Release (v0.1.0)
+## Phase 8 — Outline / Bookmarks (v0.2.0)
+
+**Goal:** PDF outline (table of contents / bookmarks) displayed in a tree panel for quick navigation.
+
+**Branch:** `feat/outline`
+
+### Tasks
+
+- [ ] Call `pdfDoc.getOutline()` to retrieve the document's bookmark tree
+- [ ] Render outline as a collapsible tree in a panel (alongside or replacing the thumbnail panel)
+- [ ] Clicking an outline entry navigates to the referenced page/destination
+- [ ] Handle flat outlines (no children) and nested outlines (expand/collapse)
+- [ ] Show informational message when the PDF has no outline
+- [ ] Panel visibility toggled via toolbar button
+
+### Manual Tests
+
+- Outline panel toggles open/closed
+- Outline entries match the bookmarks in the PDF
+- Clicking an entry jumps to the correct page
+- Nested items expand/collapse correctly
+- PDFs without outlines show a graceful message
+
+### Exit Gate
+
+- `npm test` passes
+- `npm run test:e2e` passes
+- Manual outline navigation verified on a PDF with bookmarks
+- Commit and merge: `feat: outline/bookmark panel via PDF.js getOutline`
+
+---
+
+## Phase 9 — Password-Protected PDFs (v0.3.0)
+
+**Goal:** PDFs protected with a user password can be opened by prompting for the password via VS Code's input box API.
+
+**Branch:** `feat/password`
+
+### Tasks
+
+- [ ] Detect `PasswordException` when loading a PDF with `pdfjsLib.getDocument()`
+- [ ] On password error, call `vscode.window.showInputBox({ password: true, prompt: "Enter PDF password" })`
+- [ ] Retry `getDocument({ url, password })` with the entered password
+- [ ] Handle incorrect password: show error notification and re-prompt (up to 3 attempts)
+- [ ] Handle user cancellation gracefully (close input → show "Password required" in viewer)
+- [ ] Ensure the entered password is never logged or persisted
+
+### Manual Tests
+
+- Opening a password-protected PDF shows the VS Code input prompt
+- Correct password renders the PDF normally
+- Wrong password shows an error and re-prompts
+- Pressing Escape/Cancel on the prompt shows the status message without crashing
+
+### Exit Gate
+
+- `npm test` passes
+- `npm run test:e2e` passes (mock password flow)
+- Manual password tests pass with a real encrypted PDF
+- Commit and merge: `feat: password-protected PDF support`
+
+---
+
+## Phase 10 — First Public Release (v0.1.0)
 
 **Goal:** Publish extension to VS Code Marketplace and tag on GitHub.
 
@@ -388,15 +488,3 @@ Playwright can load the `webview.html` as a static page in a real browser, injec
 - Extension live on VS Code Marketplace
 - GitHub release tagged `v0.1.0` with correct release notes
 - No issues filed within 24h that indicate a critical regression
-
----
-
-## Future Phases (Post v0.1.0)
-
-Track these as GitHub issues; do not start until v0.1.0 is stable:
-
-| Phase  | Feature                 | Notes                                              |
-| ------ | ----------------------- | -------------------------------------------------- |
-| v0.2.0 | Thumbnail panel         | Side panel showing page thumbnails for quick nav   |
-| v0.2.0 | Outline / bookmarks     | PDF.js `getOutline()` to show in a Tree View       |
-| v0.3.0 | Password-protected PDFs | `getDocument({ password })` + VS Code input prompt |

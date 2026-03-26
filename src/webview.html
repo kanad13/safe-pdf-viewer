@@ -170,6 +170,48 @@
 			text-align: center;
 			padding: 32px;
 		}
+
+		/* ── Search bar ───────────────────────────────────────── */
+
+		.search-bar {
+			display: none;
+			align-items: center;
+			gap: 6px;
+			padding: 4px 12px;
+			background: var(--vscode-editorWidget-background);
+			border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+			flex-shrink: 0;
+		}
+
+		.search-input {
+			flex: 1;
+			max-width: 240px;
+			background: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.3));
+			border-radius: 4px;
+			padding: 2px 6px;
+			font-size: 0.85em;
+		}
+
+		.search-count {
+			font-size: 0.8em;
+			color: var(--vscode-descriptionForeground);
+			min-width: 60px;
+			white-space: nowrap;
+		}
+
+		/* ── Search highlights ────────────────────────────────── */
+
+		.textLayer .search-highlight {
+			background: rgba(255, 200, 0, 0.4) !important;
+			border-radius: 2px;
+		}
+
+		.textLayer .search-highlight-current {
+			background: rgba(255, 120, 0, 0.5) !important;
+			outline: 1px solid rgba(255, 120, 0, 0.8);
+		}
 	</style>
 </head>
 
@@ -187,6 +229,15 @@
 		<button id="btn-zoom-out" aria-label="Zoom out" title="Zoom out (-)">−</button>
 		<button id="btn-zoom-fit" aria-label="Fit Page" title="Fit Page">Fit Page</button>
 		<button id="btn-zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
+	</div>
+
+	<!-- Search bar (hidden by default; shown on Ctrl+F / Cmd+F) -->
+	<div id="search-bar" class="search-bar">
+		<input id="search-input" class="search-input" type="text" placeholder="Find in document…" aria-label="Find in document" autocomplete="off" spellcheck="false" />
+		<span id="search-count" class="search-count" aria-live="polite"></span>
+		<button id="btn-search-prev" aria-label="Previous match" title="Previous match (Shift+Enter)">↑</button>
+		<button id="btn-search-next" aria-label="Next match" title="Next match (Enter)">↓</button>
+		<button id="btn-search-close" aria-label="Close search" title="Close search (Escape)">✕</button>
 	</div>
 
 	<!-- PDF canvas viewport -->
@@ -222,6 +273,18 @@
 		const pageInput = document.getElementById("page-input");
 		const pageTotal = document.getElementById("page-total");
 		const btnZoomFit = document.getElementById("btn-zoom-fit");
+
+		// ── Search state ───────────────────────────────────────────────
+		const searchBar = document.getElementById("search-bar");
+		const searchInput = document.getElementById("search-input");
+		const searchCount = document.getElementById("search-count");
+		const btnSearchPrev = document.getElementById("btn-search-prev");
+		const btnSearchNext = document.getElementById("btn-search-next");
+		const btnSearchClose = document.getElementById("btn-search-close");
+
+		let searchIndex = [];   // [{page, fullText}] — built after PDF loads
+		let searchMatches = []; // [{page, occurrenceOnPage}] — global match list
+		let searchMatchIdx = -1; // index into searchMatches
 
 		// ── Zoom helpers ───────────────────────────────────────────────
 
@@ -301,6 +364,11 @@
 					});
 					await activeTextLayer.render();
 				}
+
+				// Re-apply search highlights after every page render (if a search is active)
+				if (searchInput.value.trim()) {
+					applySearchHighlights(searchInput.value.trim());
+				}
 			} catch (err) {
 				if (err?.name !== "RenderingCancelledException" && err?.name !== "AbortException") {
 					console.error("PDF render error:", err);
@@ -353,7 +421,14 @@
 
 		// Keyboard navigation
 		document.addEventListener("keydown", (e) => {
+			// Open search bar with Ctrl+F / Cmd+F
+			if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+				e.preventDefault();
+				openSearchBar();
+				return;
+			}
 			if (document.activeElement === pageInput) return;
+			if (document.activeElement === searchInput) return;
 			if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown") {
 				e.preventDefault();
 				goNext();
@@ -418,6 +493,142 @@
 		document.getElementById("btn-zoom-out").addEventListener("click", () => adjustZoom(-1));
 		btnZoomFit.addEventListener("click", () => setZoom("fit-page"));
 
+		// ── Search ─────────────────────────────────────────────────────
+
+		async function buildSearchIndex() {
+			searchIndex = [];
+			for (let p = 1; p <= pdfDoc.numPages; p++) {
+				const page = await pdfDoc.getPage(p);
+				const textContent = await page.getTextContent();
+				searchIndex.push({
+					page: p,
+					fullText: textContent.items.map(item => item.str || "").join(""),
+				});
+			}
+		}
+
+		function runSearch(query) {
+			searchMatches = [];
+			searchMatchIdx = -1;
+			if (!query || !searchIndex.length) {
+				updateSearchCount();
+				applySearchHighlights("");
+				return;
+			}
+			const lq = query.toLowerCase();
+			for (const entry of searchIndex) {
+				const pageText = entry.fullText.toLowerCase();
+				let pos = 0;
+				let occ = 0;
+				while ((pos = pageText.indexOf(lq, pos)) !== -1) {
+					searchMatches.push({ page: entry.page, occurrenceOnPage: occ });
+					pos += lq.length;
+					occ++;
+				}
+			}
+			if (searchMatches.length > 0) {
+				searchMatchIdx = 0;
+				navigateToMatch(0);
+			} else {
+				updateSearchCount();
+				applySearchHighlights(query);
+			}
+		}
+
+		function navigateToMatch(idx) {
+			if (!searchMatches.length) return;
+			searchMatchIdx = ((idx % searchMatches.length) + searchMatches.length) % searchMatches.length;
+			const match = searchMatches[searchMatchIdx];
+			updateSearchCount();
+			if (match.page !== currentPage) {
+				renderPage(match.page);
+			} else {
+				applySearchHighlights(searchInput.value.trim());
+			}
+		}
+
+		function applySearchHighlights(query) {
+			// Remove any existing highlights
+			textLayerDiv.querySelectorAll(".search-highlight, .search-highlight-current").forEach(el => {
+				el.classList.remove("search-highlight", "search-highlight-current");
+			});
+			if (!query) return;
+			const lq = query.toLowerCase();
+			const currentOcc = (searchMatches[searchMatchIdx] && searchMatches[searchMatchIdx].page === currentPage)
+				? searchMatches[searchMatchIdx].occurrenceOnPage
+				: -1;
+			const spans = textLayerDiv.querySelectorAll("span");
+			let spanOcc = 0;
+			let currentEl = null;
+			for (const span of spans) {
+				if (span.textContent.toLowerCase().includes(lq)) {
+					span.classList.add("search-highlight");
+					if (spanOcc === currentOcc) {
+						span.classList.add("search-highlight-current");
+						currentEl = span;
+					}
+					spanOcc++;
+				}
+			}
+			if (currentEl) {
+				currentEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+			} else if (spanOcc > 0) {
+				const first = textLayerDiv.querySelector(".search-highlight");
+				if (first) first.scrollIntoView({ block: "nearest", behavior: "smooth" });
+			}
+		}
+
+		function updateSearchCount() {
+			if (!searchInput.value.trim()) {
+				searchCount.textContent = "";
+				return;
+			}
+			if (!searchMatches.length) {
+				searchCount.textContent = "No results";
+				return;
+			}
+			searchCount.textContent = `${searchMatchIdx + 1} of ${searchMatches.length}`;
+		}
+
+		function openSearchBar() {
+			searchBar.style.display = "flex";
+			searchInput.focus();
+			searchInput.select();
+		}
+
+		function closeSearchBar() {
+			searchBar.style.display = "none";
+			searchInput.value = "";
+			searchMatches = [];
+			searchMatchIdx = -1;
+			searchCount.textContent = "";
+			applySearchHighlights("");
+		}
+
+		searchInput.addEventListener("input", () => {
+			runSearch(searchInput.value.trim());
+		});
+
+		searchInput.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				if (e.shiftKey) {
+					navigateToMatch(searchMatchIdx - 1);
+				} else {
+					navigateToMatch(searchMatchIdx + 1);
+				}
+			} else if (e.key === "Escape") {
+				e.preventDefault();
+				closeSearchBar();
+			}
+			// Prevent navigation keys from bubbling to the main keydown handler
+			e.stopPropagation();
+		});
+
+		btnSearchPrev.addEventListener("click", () => navigateToMatch(searchMatchIdx - 1));
+		btnSearchNext.addEventListener("click", () => navigateToMatch(searchMatchIdx + 1));
+		btnSearchClose.addEventListener("click", closeSearchBar);
+
 		// ── VS Code message channel ─────────────────────────────────────
 		// Mirrors mermaid-slideshow postMessage pattern.
 
@@ -447,6 +658,7 @@
 					pdfDoc = await loadingTask.promise;
 					pageContainer.style.display = "inline-block";
 					await renderPage(1);
+					await buildSearchIndex();
 				} catch (err) {
 					console.error("PDF load error:", err);
 					showStatus("Could not load PDF.");
