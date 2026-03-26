@@ -11,7 +11,8 @@ const path = require("path");
  */
 function getNonce() {
 	let text = "";
-	const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	const possible =
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 	for (let i = 0; i < 32; i++) {
 		text += possible.charAt(Math.floor(Math.random() * possible.length));
 	}
@@ -24,7 +25,9 @@ function getNonce() {
  * @returns {string} Zoom value: "fit-width" | "fit-page" | "75" | "100" | "125" | "150" | "200"
  */
 function getDefaultZoom() {
-	return vscode.workspace.getConfiguration("safePdfViewer").get("defaultZoom", "fit-width");
+	return vscode.workspace
+		.getConfiguration("safePdfViewer")
+		.get("defaultZoom", "fit-width");
 }
 
 /**
@@ -51,12 +54,14 @@ function getWebviewContent(panel, pdfFileUri, extensionUri, nonce) {
 
 	// Convert file URIs to webview-safe resource URIs
 	const pdfUri = panel.webview.asWebviewUri(pdfFileUri).toString();
-	const pdfjsUri = panel.webview.asWebviewUri(
-		vscode.Uri.joinPath(extensionUri, "lib", "pdfjs", "pdf.mjs")
-	).toString();
-	const workerUri = panel.webview.asWebviewUri(
-		vscode.Uri.joinPath(extensionUri, "lib", "pdfjs", "pdf.worker.mjs")
-	).toString();
+	const pdfjsUri = panel.webview
+		.asWebviewUri(vscode.Uri.joinPath(extensionUri, "lib", "pdfjs", "pdf.mjs"))
+		.toString();
+	const workerUri = panel.webview
+		.asWebviewUri(
+			vscode.Uri.joinPath(extensionUri, "lib", "pdfjs", "pdf.worker.mjs"),
+		)
+		.toString();
 	const defaultZoom = getDefaultZoom();
 
 	const templatePath = path.join(__dirname, "webview.html");
@@ -109,7 +114,12 @@ class SafePdfEditorProvider {
 		};
 
 		const nonce = getNonce();
-		webviewPanel.webview.html = getWebviewContent(webviewPanel, pdfFileUri, extensionUri, nonce);
+		webviewPanel.webview.html = getWebviewContent(
+			webviewPanel,
+			pdfFileUri,
+			extensionUri,
+			nonce,
+		);
 
 		// Wait for webview to signal it is ready, then send initialization data
 		webviewPanel.webview.onDidReceiveMessage(
@@ -124,7 +134,7 @@ class SafePdfEditorProvider {
 				// Future: handle "pageChanged", "error", etc.
 			},
 			null,
-			this._context.subscriptions
+			this._context.subscriptions,
 		);
 	}
 
@@ -164,7 +174,7 @@ function activate(context) {
 				retainContextWhenHidden: false,
 			},
 			supportsMultipleEditorsPerDocument: false,
-		}
+		},
 	);
 
 	context.subscriptions.push(registration);
