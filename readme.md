@@ -55,6 +55,7 @@ Open VS Code Settings (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux) and search f
 - Zoom controls (fit-page, +/−, percentage)
 - Text selection and copy
 - Inline document search (always available on the toolbar, or focus via `Ctrl+F` / `Cmd+F`)
+- Password-protected PDFs — prompts for password, retries up to 3 times, cancels gracefully
 - Dark and light mode — respects VS Code theme
 
 ## Intentional Exclusions
@@ -66,7 +67,6 @@ Open VS Code Settings (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux) and search f
 | PDF JavaScript execution  | Disabled at renderer level (`isEvalSupported: false`)            |
 | External link auto-follow | Open-redirect risk; links are display-only                       |
 | Printing                  | OS-level complexity out of scope for v1                          |
-| Password-protected PDFs   | Adds crypto complexity deferred to a future version              |
 | Embedded media playback   | Sandbox violation risk                                           |
 
 ## Security

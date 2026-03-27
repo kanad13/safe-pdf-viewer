@@ -38,6 +38,7 @@
 			border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
 			flex-shrink: 0;
 			user-select: none;
+			overflow: hidden; /* clip rather than scroll when panel is very narrow */
 		}
 
 		.toolbar button {
@@ -49,6 +50,7 @@
 			font-size: 0.85em;
 			cursor: pointer;
 			line-height: 1.4;
+			flex-shrink: 0; /* nav/zoom buttons never shrink */
 			transition: background 0.12s ease, border-color 0.12s ease;
 		}
 
@@ -89,6 +91,7 @@
 			height: 16px;
 			background: var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
 			margin: 0 2px;
+			flex-shrink: 0;
 		}
 
 		/* ── Canvas viewport ──────────────────────────────────── */
@@ -174,7 +177,8 @@
 		/* ── Search (inline in toolbar) ──────────────────────── */
 
 		.search-input {
-			width: 180px;
+			flex: 1 1 80px; /* shrinks when panel is narrow; never disappears */
+			min-width: 80px;
 			background: var(--vscode-input-background);
 			color: var(--vscode-input-foreground);
 			border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.3));
@@ -186,8 +190,10 @@
 		.search-count {
 			font-size: 0.8em;
 			color: var(--vscode-descriptionForeground);
-			min-width: 56px;
+			min-width: 0; /* can collapse when space is tight */
+			overflow: hidden;
 			white-space: nowrap;
+			flex-shrink: 1;
 		}
 
 		/* ── Search highlights (injected <mark> elements) ─────── */

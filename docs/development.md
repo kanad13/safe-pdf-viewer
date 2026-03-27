@@ -148,6 +148,11 @@ Test in the dev host:
   - Arrow-key page navigation does **not** fire while search input is focused
 - Test dark theme: switch VS Code to a dark theme, verify viewer chrome updates
 - Test zoom setting: change `safePdfViewer.defaultZoom` in Settings (e.g. `"100"` or `"fit-page"`), close and reopen PDF
+- Test password-protected PDFs (requires an encrypted PDF):
+  - Open a password-protected PDF → verify VS Code input prompt appears
+  - Enter the wrong password → verify the prompt re-appears (up to 3 attempts)
+  - Press Escape on the prompt → verify the viewer shows "Password required…" status
+  - Enter the correct password → verify the PDF renders normally
 - Check Developer Tools for errors (`Help > Toggle Developer Tools`)
 
 ### Step 4: Lint & Build
@@ -186,19 +191,7 @@ git push origin main
 
 ---
 
-## 3. Multi-File Change Protocol
-
-When a task touches 3+ files or requires multiple related edits:
-
-1. **Branch first** — always work on a feature branch, never directly on `main`
-2. **File-touch matrix** — map which files each change touches, then group/sequence to minimize redundant edits to the same file across commits
-3. **Phase the work** — group changes into logical phases (infra/config first, then code, then tests). Never fix a file you're about to delete
-4. **Gate each phase** — after each phase: commit, build `.vsix`, run tests, verify before proceeding
-5. **Track in a workplan** — for 4+ phases, create a `WORKPLAN.md` (delete when done) with the matrix and checklist
-
----
-
-## 4. Release Management
+## 3. Release Management
 
 **Only release from `main` branch after all features are merged and tested.**
 
@@ -292,7 +285,7 @@ gh release create vX.Y.Z --title "vX.Y.Z" --notes-file <(sed -n '/## \[X.Y.Z\]/,
 
 ---
 
-## 5. Project Structure Reference
+## 4. Project Structure Reference
 
 ```
 safe-pdf-viewer/
