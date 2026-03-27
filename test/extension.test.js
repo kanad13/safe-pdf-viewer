@@ -26,6 +26,7 @@ require.cache["vscode"] = {
 			activeColorTheme: { kind: 1 },
 			onDidChangeActiveColorTheme: () => ({ dispose() {} }),
 			registerCustomEditorProvider: () => ({ dispose() {} }),
+			showInputBox: async () => undefined,
 		},
 		commands: { registerCommand: () => ({ dispose() {} }) },
 		ColorThemeKind: { Light: 1, Dark: 2, HighContrast: 3 },
@@ -381,6 +382,57 @@ describe("getWebviewContent", () => {
 		assert.ok(
 			render().includes("stopPropagation"),
 			"stopPropagation not found — nav key leak from search input possible",
+		);
+	});
+
+	// ── Password-protected PDFs ────────────────────────────────────────────
+
+	it("loadPdf function is present in webview HTML", () => {
+		assert.ok(
+			render().includes("loadPdf"),
+			"loadPdf not found in webview HTML",
+		);
+	});
+
+	it("waitForPasswordReply function is present in webview HTML", () => {
+		assert.ok(
+			render().includes("waitForPasswordReply"),
+			"waitForPasswordReply not found in webview HTML",
+		);
+	});
+
+	it("passwordRequired message type is present in webview HTML", () => {
+		assert.ok(
+			render().includes("passwordRequired"),
+			"passwordRequired message type not found in webview HTML",
+		);
+	});
+
+	it("passwordCancelled message type is present in webview HTML", () => {
+		assert.ok(
+			render().includes("passwordCancelled"),
+			"passwordCancelled message type not found in webview HTML",
+		);
+	});
+
+	it("password is passed to getDocument via parameter, not logged", () => {
+		const html = render();
+		// The password value must reach getDocument, not console.log
+		assert.ok(
+			html.includes("password:"),
+			"password parameter not passed to getDocument",
+		);
+		assert.doesNotMatch(
+			html,
+			/console\.log[^)]*password/,
+			"password value appears to be logged — security violation",
+		);
+	});
+
+	it("PasswordException is caught by name in webview HTML", () => {
+		assert.ok(
+			render().includes("PasswordException"),
+			"PasswordException check not found in webview HTML",
 		);
 	});
 });

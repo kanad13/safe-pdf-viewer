@@ -640,6 +640,82 @@
 			vscode.setState({ page: currentPage, zoom: currentZoom });
 		}
 
+		/**
+		 * Returns a Promise that resolves with the password string entered by the
+		 * user, or null if the user cancelled. Registers a one-shot message listener
+		 * for the "password" or "passwordCancelled" reply from the extension host,
+		 * then removes itself immediately after receiving either message.
+		 *
+		 * @returns {Promise<string|null>}
+		 */
+		function waitForPasswordReply() {
+			return new Promise((resolve) => {
+				function handler(ev) {
+					const type = ev.data && ev.data.type;
+					if (type === "password") {
+						window.removeEventListener("message", handler);
+						resolve(ev.data.value);
+					} else if (type === "passwordCancelled") {
+						window.removeEventListener("message", handler);
+						resolve(null);
+					}
+				}
+				window.addEventListener("message", handler);
+			});
+		}
+
+		/**
+		 * Loads the PDF document at `url`, retrying with a password if required.
+		 * On success, initialises the viewer state and triggers the first render.
+		 * On failure after 3 attempts or user cancellation, shows a status message.
+		 *
+		 * @param {string} url - Webview-safe URL of the PDF file
+		 * @param {string|null} password - Password for PDF.js (null on first attempt)
+		 * @param {number} attempt - Current attempt number (1-based)
+		 */
+		async function loadPdf(url, password, attempt) {
+			const loadingTask = pdfjsLib.getDocument({
+				url,
+				password: password ?? undefined,
+				isEvalSupported: false,   // Disable PDF JavaScript
+				disableFontFace: false,
+			});
+			try {
+				pdfDoc = await loadingTask.promise;
+			} catch (err) {
+				if (err && err.name === "PasswordException") {
+					if (attempt > 3) {
+						showStatus("Too many incorrect password attempts.");
+						return;
+					}
+					vscode.postMessage({
+						type: "passwordRequired",
+						isWrongPassword: attempt > 1,
+					});
+					const reply = await waitForPasswordReply();
+					if (reply === null) {
+						showStatus("Password required to open this PDF.");
+						return;
+					}
+					return loadPdf(url, reply, attempt + 1);
+				}
+				console.error("PDF load error:", err);
+				showStatus("Could not load PDF.");
+				return;
+			}
+			pageContainer.style.display = "inline-block";
+			pageInput.max = pdfDoc.numPages;
+			const saved = vscode.getState();
+			if (saved && saved.zoom) {
+				currentZoom = saved.zoom;
+			}
+			const startPage = (saved && saved.page)
+				? Math.max(1, Math.min(pdfDoc.numPages, saved.page))
+				: 1;
+			await renderPage(startPage);
+			await buildSearchIndex();
+		}
+
 		// Resize listener to re-render if fitting to width/page
 		let resizeTimeout = null;
 		window.addEventListener("resize", () => {
@@ -654,28 +730,7 @@
 		window.addEventListener("message", async (event) => {
 			const message = event.data;
 			if (message.type === "init") {
-				const loadingTask = pdfjsLib.getDocument({
-					url: message.pdfUrl,
-					isEvalSupported: false,   // Disable PDF JavaScript
-					disableFontFace: false,
-				});
-				try {
-					pdfDoc = await loadingTask.promise;
-					pageContainer.style.display = "inline-block";
-					pageInput.max = pdfDoc.numPages;
-					const saved = vscode.getState();
-					if (saved && saved.zoom) {
-						currentZoom = saved.zoom;
-					}
-					const startPage = (saved && saved.page)
-						? Math.max(1, Math.min(pdfDoc.numPages, saved.page))
-						: 1;
-					await renderPage(startPage);
-					await buildSearchIndex();
-				} catch (err) {
-					console.error("PDF load error:", err);
-					showStatus("Could not load PDF.");
-				}
+				await loadPdf(message.pdfUrl, null, 1);
 			}
 		});
 

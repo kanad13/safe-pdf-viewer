@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-03-27
+
+### Added
+
+- Password-protected PDF support: entering an incorrect or missing password now shows a VS Code input prompt (masked) instead of silently failing with "Could not load PDF."
+- Re-prompt on wrong password with up to 3 attempts before giving up
+- Graceful cancellation: pressing Escape shows a status message without crashing
+
+### Security
+
+- Password value is never logged, never stored in extension state, and discarded immediately after `getDocument()` returns
+
 ## [0.1.2] - 2026-03-27
 
 ### Changed
