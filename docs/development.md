@@ -279,8 +279,8 @@ gh release create vX.Y.Z --title "vX.Y.Z" --notes-file <(sed -n '/## \[X.Y.Z\]/,
 
 ### Step 5: Verify Publication
 
-- Check the [VS Code Marketplace listing](https://marketplace.visualstudio.com/items?itemName=KunalPathak.safe-pdf-viewer)
-- Install the published version in a clean VS Code instance: `code --install-extension KunalPathak.safe-pdf-viewer@X.Y.Z`
+- Check the [VS Code Marketplace listing](https://marketplace.visualstudio.com/items?itemName=Kunal%20Pathak.safe-pdf-viewer)
+- Install the published version in a clean VS Code instance: `code --install-extension "Kunal Pathak.safe-pdf-viewer@X.Y.Z"`
 - Confirm version number in Extensions panel
 
 ---

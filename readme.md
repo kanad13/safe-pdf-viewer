@@ -20,7 +20,7 @@ Safe PDF Viewer takes the opposite approach:
 
 1. Open VS Code (or any VS Code-based editor)
 2. Go to Extensions
-3. Search for "Safe PDF Viewer" or `KunalPathak.safe-pdf-viewer`
+3. Search for "Safe PDF Viewer" or `Kunal Pathak.safe-pdf-viewer`
 4. Click Install
 
 ## Usage
