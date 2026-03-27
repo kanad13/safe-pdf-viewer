@@ -5,12 +5,15 @@ test/**
 docs/**
 examples/**
 plan.md
+remediation-plan.md
 CLAUDE.md
+.claude/**
 REUSE_ANALYSIS.md
 .gitignore
 .eslintignore
 eslint.config.js
 jsconfig.json
+playwright.config.js
 **/.DS_Store
 
 # Exclude PDF.js source maps (keep only the .mjs bundles)

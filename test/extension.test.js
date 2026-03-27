@@ -44,6 +44,8 @@ const {
 	getNonce,
 	getDefaultZoom,
 	getWebviewContent,
+	activate,
+	deactivate,
 } = require("../src/extension");
 
 // ── getNonce ───────────────────────────────────────────────────────────────────
@@ -87,6 +89,22 @@ describe("getDefaultZoom", () => {
 	});
 });
 
+// ── activate / deactivate ──────────────────────────────────────────────────────
+
+describe("activate / deactivate", () => {
+	it("activate does not throw with a stub context", () => {
+		const stubContext = {
+			extensionUri: { fsPath: "/stub", toString: () => "/stub" },
+			subscriptions: { push: () => {} },
+		};
+		assert.doesNotThrow(() => activate(stubContext));
+	});
+
+	it("deactivate does not throw", () => {
+		assert.doesNotThrow(() => deactivate());
+	});
+});
+
 // ── getWebviewContent ──────────────────────────────────────────────────────────
 
 describe("getWebviewContent", () => {
@@ -100,17 +118,12 @@ describe("getWebviewContent", () => {
 		},
 	};
 	const stubExtensionUri = { fsPath: "/stub/ext", toString: () => "/stub/ext" };
-	const stubPdfUri = {
-		fsPath: "/stub/test.pdf",
-		toString: () => "/stub/test.pdf",
-	};
 	const stubNonce = "A".repeat(32);
 
 	/** Helper — call once, reuse output across assertions in a single test. */
 	function render() {
 		return getWebviewContent(
 			stubPanel,
-			stubPdfUri,
 			stubExtensionUri,
 			stubNonce,
 		);
@@ -242,19 +255,6 @@ describe("getWebviewContent", () => {
 			render().includes("--scale-factor"),
 			"--scale-factor CSS variable not found — TextLayer scaling will break",
 		);
-	});
-	const { activate, deactivate } = require("../src/extension");
-
-	it("activate does not throw with a stub context", () => {
-		const stubContext = {
-			extensionUri: { fsPath: "/stub", toString: () => "/stub" },
-			subscriptions: { push: () => {} },
-		};
-		assert.doesNotThrow(() => activate(stubContext));
-	});
-
-	it("deactivate does not throw", () => {
-		assert.doesNotThrow(() => deactivate());
 	});
 
 	// ── Phase 6 — In-document search ──────────────────────────────────────

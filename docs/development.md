@@ -144,7 +144,7 @@ Test in the dev host:
   - Typing highlights matching spans with a yellow/orange indicator
   - Enter / ↓ button cycles forward; Shift+Enter / ↑ button cycles backward
   - Match counter shows "X of Y" or "No results"
-  - Escape and the ✕ button both close the bar and clear highlights
+  - Escape clears search and removes highlights. The search input is always visible in the toolbar (no open/close toggle)
   - Arrow-key page navigation does **not** fire while search input is focused
 - Test dark theme: switch VS Code to a dark theme, verify viewer chrome updates
 - Test zoom setting: change `safePdfViewer.defaultZoom` in Settings (e.g. `"100"` or `"fit-page"`), close and reopen PDF

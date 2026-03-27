@@ -52,7 +52,17 @@
 				"safePdfViewer.defaultZoom": {
 					"type": "string",
 					"default": "fit-page",
-					"description": "Default zoom level when opening a PDF file (e.g. 'fit-page' or '100')."
+					"enum": ["fit-page", "50", "75", "100", "125", "150", "200"],
+					"enumDescriptions": [
+						"Fit entire page in viewport",
+						"50%",
+						"75%",
+						"100%",
+						"125%",
+						"150%",
+						"200%"
+					],
+					"description": "Default zoom level when opening a PDF file."
 				}
 			}
 		}

@@ -275,11 +275,6 @@
 
 		// ── Zoom helpers ───────────────────────────────────────────────
 
-		function resolveScale(zoom) {
-			if (zoom === "fit-page") return null;
-			return parseFloat(zoom) / 100;
-		}
-
 		async function computeScale(pdfPage) {
 			const unscaledVp = pdfPage.getViewport({ scale: 1 });
 			let availW = Math.max(1, viewport.clientWidth - 32);  // 16px padding each side

@@ -4,7 +4,7 @@
 
 This extension opens `.pdf` files in a focused, read-only VS Code webview. Pages are rendered via locally bundled PDF.js onto HTML5 canvas. Strict CSP, no CDN, no PDF JavaScript execution. Package name: `safe-pdf-viewer`, command prefix: `safePdfViewer`.
 
-- Single source file: `src/extension.js`
+- Primary source files: `src/extension.js` (extension host) and `src/webview.html` (webview UI, ~690 lines)
 - Static PDF.js bundle: `lib/pdfjs/pdf.mjs` + `lib/pdfjs/pdf.worker.mjs` (committed, not npm dep)
 - Closure-based state (no classes, no globals) — except `SafePdfEditorProvider` (required by VS Code API)
 - CSP nonce security on all webview renders
@@ -57,14 +57,6 @@ End-to-end manual verification uses a locally installed `.vsix`, not F5:
 5. After testing, uninstall the extension from the Extensions sidebar before the next iteration
 
 Test file at `examples/test.pdf` — 5-page PDF with text, table, and figure areas.
-
-### F5 (Extension Development Host) — alternative
-
-A `.vscode/launch.json` is committed with the `"extensionHost"` configuration.
-Select **Run Extension** from the Run & Debug panel (not the Node.js debugger)
-to launch a second VS Code window with the extension loaded live.
-Do **not** select "Node.js" — that tries to run `extension.js` as a plain script,
-which fails because `vscode` is not a real npm module.
 
 ## Security Invariants
 

@@ -28,12 +28,14 @@ Safe PDF Viewer takes the opposite approach:
 Double-click any `.pdf` file in VS Code — it opens directly in the viewer panel.
 
 Navigate with:
+
 - `←` / `→` arrow keys or `PageUp` / `PageDown`
 - Mouse scroll wheel
 - Click the `‹` `›` navigation arrows
 - Type a page number in the jump-to-page input
 
 Zoom with:
+
 - `+` / `-` keys
 - Fit-Page button in the toolbar
 
@@ -43,9 +45,9 @@ The page counter in the toolbar shows your position (e.g., "Page 3 / 12").
 
 Open VS Code Settings (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux) and search for **"Safe PDF Viewer"**.
 
-| Setting | Options | Default | Description |
-|---|---|---|---|
-| `safePdfViewer.defaultZoom` | `fit-page`, `75`, `100`, `125`, `150`, `200` | `fit-page` | Default zoom level when opening a PDF |
+| Setting                     | Options                                      | Default    | Description                           |
+| --------------------------- | -------------------------------------------- | ---------- | ------------------------------------- |
+| `safePdfViewer.defaultZoom` | `fit-page`, `50`, `75`, `100`, `125`, `150`, `200` | `fit-page` | Default zoom level when opening a PDF |
 
 ## Features
 
@@ -57,15 +59,15 @@ Open VS Code Settings (`Cmd+,` on macOS, `Ctrl+,` on Windows/Linux) and search f
 
 ## Intentional Exclusions
 
-| Feature | Why excluded |
-|---|---|
-| PDF editing / annotation | Out of scope — read-only by design |
-| Form filling | Attack surface expansion; PDF forms can carry malicious payloads |
-| PDF JavaScript execution | Disabled at renderer level (`isEvalSupported: false`) |
-| External link auto-follow | Open-redirect risk; links are display-only |
-| Printing | OS-level complexity out of scope for v1 |
-| Password-protected PDFs | Adds crypto complexity deferred to a future version |
-| Embedded media playback | Sandbox violation risk |
+| Feature                   | Why excluded                                                     |
+| ------------------------- | ---------------------------------------------------------------- |
+| PDF editing / annotation  | Out of scope — read-only by design                               |
+| Form filling              | Attack surface expansion; PDF forms can carry malicious payloads |
+| PDF JavaScript execution  | Disabled at renderer level (`isEvalSupported: false`)            |
+| External link auto-follow | Open-redirect risk; links are display-only                       |
+| Printing                  | OS-level complexity out of scope for v1                          |
+| Password-protected PDFs   | Adds crypto complexity deferred to a future version              |
+| Embedded media playback   | Sandbox violation risk                                           |
 
 ## Security
 

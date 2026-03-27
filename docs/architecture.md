@@ -13,7 +13,7 @@ User opens .pdf file in VS Code
          ↓
 VS Code calls resolveCustomEditor(document, webviewPanel, token)
          ↓
-getWebviewContent(pdfUri, pdfjsUri, nonce) → HTML
+getWebviewContent(panel, extensionUri, nonce) → HTML
          ↓
 Webview loads PDF.js from local bundle (no CDN)
          ↓
@@ -21,19 +21,20 @@ PDF.js fetches PDF via webview-safe URI, renders page 1 onto <canvas>
          ↓
 User navigates with arrow keys / scroll / click
          ↓
-On config change: updated zoom default applied to new panels
+New panels read zoom default from VS Code config at open time
 ```
 
 One active webview panel per file (VS Code manages this via the custom editor API). Panel state lives in a closure inside `resolveCustomEditor`.
 
 ## Key Functions
 
-| Function                                                                    | Purpose                                                                                                                      |
-| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `getNonce()`                                                                | Generates random 32-char alphanumeric token for CSP (verbatim from mermaid-slideshow)                                        |
-| `getWebviewContent(pdfUri, pdfjsUri, nonce)`                                | Reads `src/webview.html`, replaces `{{NONCE}}`, `{{PDF_URI}}`, `{{PDFJS_URI}}`, `{{DEFAULT_ZOOM}}` tokens, returns full HTML |
-| `activate(context)`                                                         | Registers `CustomReadonlyEditorProvider`, applies `onDidChangeConfiguration` listener                                        |
-| `SafePdfEditorProvider.resolveCustomEditor(document, webviewPanel, _token)` | Sets up webview options, CSP, and posts initial config; handles incoming messages                                            |
+| Function                                                                    | Purpose                                                                                                                   |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `getNonce()`                                                                | Generates a cryptographically random 32-character hex token for CSP (uses `crypto.randomBytes`)                          |
+| `getDefaultZoom()`                                                          | Reads `safePdfViewer.defaultZoom` from VS Code config; falls back to `"fit-page"` for unrecognised values                |
+| `getWebviewContent(panel, extensionUri, nonce)`                             | Reads `src/webview.html`, replaces `{{NONCE}}`, `{{PDFJS_URI}}`, `{{WORKER_URI}}`, `{{DEFAULT_ZOOM}}` tokens, returns full HTML |
+| `activate(context)`                                                         | Registers `CustomReadonlyEditorProvider`; new panels read zoom default from VS Code config at open time                  |
+| `SafePdfEditorProvider.resolveCustomEditor(document, webviewPanel, _token)` | Sets up webview options, CSP, and posts initial config; handles incoming messages                                         |
 
 ## VS Code API: CustomReadonlyEditorProvider
 
@@ -58,7 +59,7 @@ PDF files are an attack surface. Defense layers:
 2. **No CDN:** PDF.js ships inside the extension (`lib/pdfjs/`). Zero outbound network. Works offline.
 3. **`worker-src blob:`:** PDF.js spawns a web worker using `URL.createObjectURL(blob)`. This is the only non-`none` worker origin, and it is already sandboxed within the webview.
 4. **`localResourceRoots` allowlist:** The webview can only load resources from two directories — the PDF.js lib folder and the folder containing the open PDF. It cannot access any other path on disk.
-5. **`isEvalSupported: false`:** Passed to `pdfjsLib.GlobalWorkerOptions` — disables PDF JavaScript execution at the renderer level.
+5. **`isEvalSupported: false`:** Passed to `pdfjsLib.getDocument()` — disables PDF JavaScript execution at the renderer level.
 6. **Read-Only Provider:** `CustomReadonlyEditorProvider` signals to VS Code (and downstream tools) that this editor never writes to disk.
 7. **No User HTML Passthrough:** PDF bytes are decoded and painted onto canvas by PDF.js. The content of the PDF file is never interpreted as HTML or injected into the DOM as a string.
 
@@ -66,34 +67,41 @@ PDF files are an attack surface. Defense layers:
 
 ```
 default-src 'none';
-script-src 'nonce-NONCE';
-worker-src blob:;
+script-src 'nonce-NONCE' 'strict-dynamic';
+worker-src blob: WEBVIEW_CSP_SOURCE;
+connect-src WEBVIEW_CSP_SOURCE;
 style-src 'unsafe-inline';
-img-src WEBVIEW_RESOURCE_URI: data:;
+img-src data:;
 ```
 
-The `img-src` uses the webview's own resource scheme (e.g., `vscode-resource:`) plus `data:` for PDF-embedded images rendered via canvas — never an external origin.
+`WEBVIEW_CSP_SOURCE` is `panel.webview.cspSource` — the VS Code webview's own resource scheme (e.g. `vscode-resource:`). `connect-src` allows PDF.js to fetch the PDF file via the webview URI. `img-src data:` covers PDF-embedded images rendered via canvas — never an external origin.
 
 ## State Management
 
 State is closure-scoped inside `resolveCustomEditor`, keeping it per-panel:
 
+- `pdfDoc` — loaded PDF.js document object (`null` until init message)
 - `currentPage` — 1-based index of the visible page
-- `totalPages` — populated after PDF loads
-- `currentZoom` — active zoom (string: `"fit-page"`, or a numeric percent string like `"100"`, `"150"` etc.)
-- `pdfUri` — the VS Code `Uri` of the open file
+- `currentZoom` — active zoom string (`"fit-page"` or numeric percent, e.g. `"100"`)
+- `renderTask` — in-flight PDF.js render task; cancelled on page navigation
+- `activeTextLayer` — in-flight `TextLayer` instance; cancelled on page navigation
+- `searchIndex` — `[{ page, fullText }]` array built after PDF loads
+- `searchMatches` — flat `[{ page, occurrenceOnPage }]` list for the current query
+- `searchMatchIdx` — current position within `searchMatches`
+- `scrollCooldown` — boolean throttle for scroll-wheel page turning
+- `resizeTimeout` — debounce handle for the window `resize` event
 
 The webview-side state (canvas content, scroll position) lives entirely in the webview. The extension host does not try to mirror it.
 
 ### Extension ↔ Webview Communication
 
-Messages follow a `{ type, ...payload }` convention (same as mermaid-slideshow):
+Messages follow a `{ type, ...payload }` convention:
 
-| Direction           | Message type    | Payload                   | Purpose                                             |
-| ------------------- | --------------- | ------------------------- | --------------------------------------------------- |
-| Extension → Webview | `"init"`        | `{ pdfUrl, defaultZoom }` | Sent once after webview is ready                    |
-| Webview → Extension | `"ready"`       | —                         | Signals DOMContentLoaded, triggers init             |
-| Webview → Extension | `"pageChanged"` | `{ page, total }`         | Updates extension-side state (for status bar, etc.) |
+| Direction           | Message type    | Payload       | Purpose                                             |
+| ------------------- | --------------- | ------------- | --------------------------------------------------- |
+| Extension → Webview | `"init"`        | `{ pdfUrl }`  | Sent once after webview is ready; triggers PDF load |
+| Webview → Extension | `"ready"`       | —             | Signals DOMContentLoaded, triggers init             |
+| Webview → Extension | `"pageChanged"` | `{ page, total }` | **Planned / not yet implemented** — see `extension.js` comment |
 
 ## PDF.js Integration
 

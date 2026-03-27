@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Initial release: read-only PDF viewer using locally bundled PDF.js
 - Page navigation via keyboard (arrow keys, PageUp/PageDown), scroll wheel, and toolbar buttons
-- Zoom controls: fit-width, fit-page, 50%–200%, +/− step buttons
+- Zoom controls: fit-page, 50%–200%, +/− step buttons
 - Text selection and copy
 - In-document text search (Ctrl+F / Cmd+F)
 - Dark and light mode support via VS Code CSS variables
