@@ -360,6 +360,7 @@
 			}
 
 			currentPage = pageNum;
+			saveState();
 			updateToolbar();
 		}
 
@@ -468,6 +469,7 @@
 
 		function setZoom(value) {
 			currentZoom = value;
+			saveState();
 			if (pdfDoc) renderPage(currentPage);
 		}
 
@@ -634,6 +636,9 @@
 
 		const vscode = acquireVsCodeApi();
 
+		function saveState() {
+			vscode.setState({ page: currentPage, zoom: currentZoom });
+		}
 
 		// Resize listener to re-render if fitting to width/page
 		let resizeTimeout = null;
@@ -657,7 +662,15 @@
 				try {
 					pdfDoc = await loadingTask.promise;
 					pageContainer.style.display = "inline-block";
-					await renderPage(1);
+					pageInput.max = pdfDoc.numPages;
+					const saved = vscode.getState();
+					if (saved && saved.zoom) {
+						currentZoom = saved.zoom;
+					}
+					const startPage = (saved && saved.page)
+						? Math.max(1, Math.min(pdfDoc.numPages, saved.page))
+						: 1;
+					await renderPage(startPage);
 					await buildSearchIndex();
 				} catch (err) {
 					console.error("PDF load error:", err);
@@ -671,6 +684,7 @@
 
 		// Clean up PDF.js resources when the webview is unloaded
 		window.addEventListener("pagehide", () => {
+			clearTimeout(resizeTimeout);
 			if (renderTask) {
 				renderTask.cancel();
 			}

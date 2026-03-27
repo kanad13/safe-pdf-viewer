@@ -141,7 +141,7 @@ class SafePdfEditorProvider {
 						pdfUrl: webviewPanel.webview.asWebviewUri(pdfFileUri).toString(),
 					});
 				}
-				// Future: handle "pageChanged", "error", etc.
+				// State persistence (page/zoom) is handled via vscode.setState in the webview.
 			},
 			null,
 			disposables,
