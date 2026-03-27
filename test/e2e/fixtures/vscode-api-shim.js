@@ -1,10 +1,19 @@
 /* global window */ /**
- * Mock for VS Code Webview API injected in Playwright tests
+ * Mock for VS Code Webview API injected in Playwright tests.
+ *
+ * The postMessage mock handles the password round-trip: if the webview sends
+ * { type: "passwordRequired" }, it immediately responds with a test password
+ * via window.postMessage so the loadPdf retry loop can proceed.
  */
 window.acquireVsCodeApi = function () {
 	return {
 		postMessage: (msg) => {
 			console.log("Mock acquireVsCodeApi postMessage:", msg);
+			if (msg && msg.type === "passwordRequired") {
+				// Respond with a test password so the retry loop can proceed in tests.
+				// Real extension would call vscode.window.showInputBox here.
+				window.postMessage({ type: "password", value: "testpassword" }, "*");
+			}
 		},
 		setState: (state) => {
 			console.log("Mock acquireVsCodeApi setState:", state);

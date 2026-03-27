@@ -132,14 +132,30 @@ class SafePdfEditorProvider {
 
 		const disposables = [];
 
-		// Wait for webview to signal it is ready, then send initialization data
+		// Wait for webview to signal it is ready, then send initialization data.
+		// The password flow uses async message round-trips: the webview posts
+		// "passwordRequired" → extension prompts the user → posts "password" or
+		// "passwordCancelled" back. The password value is never logged or persisted.
 		webviewPanel.webview.onDidReceiveMessage(
-			(message) => {
+			async (message) => {
 				if (message.type === "ready") {
 					webviewPanel.webview.postMessage({
 						type: "init",
 						pdfUrl: webviewPanel.webview.asWebviewUri(pdfFileUri).toString(),
 					});
+				} else if (message.type === "passwordRequired") {
+					const pwd = await vscode.window.showInputBox({
+						password: true,
+						prompt: message.isWrongPassword
+							? "Incorrect password. Try again."
+							: "Enter PDF password",
+						ignoreFocusOut: true,
+					});
+					if (pwd === undefined) {
+						webviewPanel.webview.postMessage({ type: "passwordCancelled" });
+					} else {
+						webviewPanel.webview.postMessage({ type: "password", value: pwd });
+					}
 				}
 				// State persistence (page/zoom) is handled via vscode.setState in the webview.
 			},

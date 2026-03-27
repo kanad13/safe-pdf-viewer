@@ -62,6 +62,7 @@ PDF files are an attack surface. Defense layers:
 5. **`isEvalSupported: false`:** Passed to `pdfjsLib.getDocument()` — disables PDF JavaScript execution at the renderer level.
 6. **Read-Only Provider:** `CustomReadonlyEditorProvider` signals to VS Code (and downstream tools) that this editor never writes to disk.
 7. **No User HTML Passthrough:** PDF bytes are decoded and painted onto canvas by PDF.js. The content of the PDF file is never interpreted as HTML or injected into the DOM as a string.
+8. **Password never persisted:** For password-protected PDFs the entered password is used only for `getDocument()`; it is never logged (`console.*`), stored in `vscode.setState`, or held in any variable beyond the retry call. Re-prompting stops after 3 failed attempts.
 
 ### CSP Header
 
@@ -97,11 +98,28 @@ The webview-side state (canvas content, scroll position) lives entirely in the w
 
 Messages follow a `{ type, ...payload }` convention:
 
-| Direction           | Message type    | Payload       | Purpose                                             |
-| ------------------- | --------------- | ------------- | --------------------------------------------------- |
-| Extension → Webview | `"init"`        | `{ pdfUrl }`  | Sent once after webview is ready; triggers PDF load |
-| Webview → Extension | `"ready"`       | —             | Signals DOMContentLoaded, triggers init             |
-| Webview → Extension | `"pageChanged"` | `{ page, total }` | **Planned / not yet implemented** — see `extension.js` comment |
+| Direction           | Message type         | Payload                         | Purpose                                                     |
+| ------------------- | -------------------- | ------------------------------- | ----------------------------------------------------------- |
+| Extension → Webview | `"init"`             | `{ pdfUrl }`                    | Sent once after webview is ready; triggers PDF load         |
+| Webview → Extension | `"ready"`            | —                               | Signals DOMContentLoaded, triggers init                     |
+| Webview → Extension | `"passwordRequired"` | `{ isWrongPassword: boolean }`  | Webview caught `PasswordException`; asks host to prompt     |
+| Extension → Webview | `"password"`         | `{ value: string }`             | Password entered by user; webview retries `getDocument`     |
+| Extension → Webview | `"passwordCancelled"`| —                               | User dismissed input box; webview shows status message      |
+
+#### Password flow sequence
+
+```
+Webview: getDocument(url) → PasswordException
+Webview → Extension: { type: "passwordRequired", isWrongPassword: false }
+Extension: vscode.window.showInputBox({ password: true })
+Extension → Webview: { type: "password", value }   ← or "passwordCancelled" if dismissed
+Webview: getDocument(url, password)
+  └─ success → render normally
+  └─ PasswordException again → retry (max 3 attempts total)
+  └─ cancelled or 3 failures → showStatus("Password required…")
+```
+
+The password value is never logged, never stored in `vscode.setState`, and is not assigned to any variable that outlives the `getDocument` call.
 
 ## PDF.js Integration
 
