@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2026-03-27
+
+### Added
+
+- SECURITY.md — vulnerability disclosure policy and reporting contact
+
+### Changed
+
+- README redrafted for VS Code Marketplace: user-first structure, keyboard shortcut table, cleaner feature list
+- Category updated from "Other, Visualization" to "Visualization" for better marketplace discoverability
+
 ## [0.2.0] - 2026-03-27
 
 ### Added

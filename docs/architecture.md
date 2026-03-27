@@ -46,7 +46,7 @@ register → contributes.customEditors in package.json
          → filenamePattern: "*.pdf"
 ```
 
-This is more idiomatic than a command for file-type viewers. The tradeoff vs the mermaid-slideshow command approach:
+This is more idiomatic than a command for file-type viewers. The tradeoff vs a command-based panel approach:
 
 - **Pros:** Integrates with file explorer, tab system, and editor groups natively
 - **Cons:** Slightly more VS Code API surface to understand
