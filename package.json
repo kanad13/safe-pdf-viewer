@@ -52,7 +52,15 @@
 				"safePdfViewer.defaultZoom": {
 					"type": "string",
 					"default": "fit-page",
-					"enum": ["fit-page", "50", "75", "100", "125", "150", "200"],
+					"enum": [
+						"fit-page",
+						"50",
+						"75",
+						"100",
+						"125",
+						"150",
+						"200"
+					],
 					"enumDescriptions": [
 						"Fit entire page in viewport",
 						"50%",
