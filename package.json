@@ -2,7 +2,7 @@
 	"name": "safe-pdf-viewer",
 	"displayName": "Safe PDF Viewer",
 	"description": "A focused, read-only PDF viewer for VS Code. Secure by default: PDF JavaScript disabled, no CDN, strict CSP.",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"icon": "assets/icon.png",
 	"publisher": "KunalPathak",
 	"author": "Kunal Pathak",
