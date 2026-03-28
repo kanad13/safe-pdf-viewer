@@ -13,6 +13,9 @@ window.acquireVsCodeApi = function () {
 				// Respond with a test password so the retry loop can proceed in tests.
 				// Real extension would call vscode.window.showInputBox here.
 				window.postMessage({ type: "password", value: "testpassword" }, "*");
+			} else if (msg && msg.type === "openLink") {
+				// In tests, log intercepted link clicks — real extension opens in browser.
+				console.log("Mock acquireVsCodeApi: openLink intercepted:", msg.url);
 			}
 		},
 		setState: (state) => {
