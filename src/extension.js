@@ -156,6 +156,17 @@ class SafePdfEditorProvider {
 					} else {
 						webviewPanel.webview.postMessage({ type: "password", value: pwd });
 					}
+				} else if (message.type === "openLink") {
+					// Open external PDF hyperlinks in the system browser.
+					// Only http/https allowed — all other schemes are blocked.
+					try {
+						const parsed = new URL(message.url);
+						if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+							await vscode.env.openExternal(vscode.Uri.parse(message.url));
+						}
+					} catch {
+						// Malformed URL — ignore silently
+					}
 				}
 				// State persistence (page/zoom) is handled via vscode.setState in the webview.
 			},

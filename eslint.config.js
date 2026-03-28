@@ -19,7 +19,8 @@ module.exports = [
 				module: "writable",
 				require: "readonly",
 				setTimeout: "readonly",
-				clearTimeout: "readonly"
+				clearTimeout: "readonly",
+				URL: "readonly"
 			}
 		},
 		rules: {
