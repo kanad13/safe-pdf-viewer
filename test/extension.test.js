@@ -260,16 +260,25 @@ describe("getWebviewContent", () => {
 
 	// ── Phase 6 — In-document search ──────────────────────────────────────
 
-	it("search input is embedded directly in the toolbar", () => {
+	it("search input is inside the floating find panel, not inline in toolbar", () => {
 		const html = render();
-		// There is no longer a separate #search-bar div — input lives inside .toolbar
+		// There is no legacy #search-bar div and no search input inside .toolbar
 		assert.ok(
 			!html.includes("id=\"search-bar\""),
-			"#search-bar div should not exist (search is inline in toolbar)",
+			"#search-bar div should not exist",
+		);
+		assert.ok(
+			html.includes("id=\"find-panel\""),
+			"#find-panel not found in webview HTML",
 		);
 		assert.ok(
 			html.includes("id=\"search-input\""),
 			"#search-input not found in webview HTML",
+		);
+		// find-panel must appear before search-input in the HTML
+		assert.ok(
+			html.indexOf("find-panel") < html.indexOf("id=\"search-input\""),
+			"search-input should be inside the find panel",
 		);
 	});
 
@@ -434,5 +443,69 @@ describe("getWebviewContent", () => {
 			render().includes("PasswordException"),
 			"PasswordException check not found in webview HTML",
 		);
+	});
+
+	// ── Floating Find Panel ────────────────────────────────────────────
+
+	it("openFindPanel and closeFindPanel functions are present", () => {
+		const html = render();
+		assert.ok(html.includes("openFindPanel"), "openFindPanel not found");
+		assert.ok(html.includes("closeFindPanel"), "closeFindPanel not found");
+	});
+
+	it("find panel has find-panel--visible toggle class", () => {
+		assert.ok(
+			render().includes("find-panel--visible"),
+			"find-panel--visible class not found — panel open/close toggle broken",
+		);
+	});
+
+	// ── Annotation Layer ───────────────────────────────────────────────
+
+	it("annotation layer div is present in page-container HTML", () => {
+		assert.ok(
+			render().includes("id=\"annotation-layer\""),
+			"#annotation-layer div not found in webview HTML",
+		);
+	});
+
+	it("annotationLayer CSS class is defined in webview HTML", () => {
+		assert.ok(
+			render().includes(".annotationLayer"),
+			".annotationLayer CSS not found",
+		);
+	});
+
+	it("createLinkService function is present in webview HTML", () => {
+		assert.ok(
+			render().includes("createLinkService"),
+			"createLinkService not found",
+		);
+	});
+
+	it("resolveAndGoToDestination function is present in webview HTML", () => {
+		assert.ok(
+			render().includes("resolveAndGoToDestination"),
+			"resolveAndGoToDestination not found",
+		);
+	});
+
+	it("openLink message type is sent from webview HTML", () => {
+		assert.ok(
+			render().includes("openLink"),
+			"openLink message type not found in webview HTML",
+		);
+	});
+
+	// ── Extension host: openLink handler ──────────────────────────────
+
+	it("extension.js contains openLink handler and openExternal call", () => {
+		const fs = require("node:fs");
+		const path = require("node:path");
+		const src = fs.readFileSync(
+			path.join(__dirname, "../src/extension.js"), "utf8",
+		);
+		assert.ok(src.includes("openLink"), "openLink handler not found in extension.js");
+		assert.ok(src.includes("openExternal"), "openExternal not found in extension.js");
 	});
 });

@@ -12,50 +12,56 @@ async function waitForPdfRender(page) {
 	}, { timeout: 15000 });
 }
 
-test.describe("In-document Search (Phase 6)", () => {
-	test("search input is visible inline on initial load", async ({ page }) => {
+test.describe("In-document Search", () => {
+	test("find panel is hidden on initial load", async ({ page }) => {
 		await page.goto("http://localhost:8080/");
 		await waitForPdfRender(page);
 
-		const searchInput = page.locator("#search-input");
-		// The search input must be in the DOM and visible inline
-		await expect(searchInput).toBeAttached();
-		await expect(searchInput).toBeVisible();
+		const findPanel = page.locator("#find-panel");
+		await expect(findPanel).toBeAttached();
+		await expect(findPanel).not.toBeVisible();
 	});
 
-	test("Ctrl+F focuses the search input", async ({ page }) => {
+	test("Ctrl+F opens the find panel and focuses the search input", async ({ page }) => {
 		await page.goto("http://localhost:8080/");
 		await waitForPdfRender(page);
 
+		const findPanel = page.locator("#find-panel");
 		const searchInput = page.locator("#search-input");
-		
-		// Focus somewhere else first
-		await page.locator("#page-input").click();
-		await expect(searchInput).not.toBeFocused();
+
+		await expect(findPanel).not.toBeVisible();
 
 		await page.keyboard.press("Control+f");
 
-		await expect(searchInput).toBeVisible();
+		await expect(findPanel).toBeVisible();
 		await expect(searchInput).toBeFocused();
 	});
 
-	test("Escape clears the search input and removes focus", async ({ page }) => {
+	test("Escape closes the find panel and clears the input", async ({ page }) => {
 		await page.goto("http://localhost:8080/");
 		await waitForPdfRender(page);
+
+		// Open panel
+		await page.keyboard.press("Control+f");
+		const findPanel = page.locator("#find-panel");
+		await expect(findPanel).toBeVisible();
 
 		const searchInput = page.locator("#search-input");
 		await searchInput.fill("test");
 		await expect(searchInput).toHaveValue("test");
 
-		// Escape while search input is focused should clear and blur it
+		// Escape closes panel and clears input
 		await page.keyboard.press("Escape");
+		await expect(findPanel).not.toBeVisible();
 		await expect(searchInput).toHaveValue("");
-		await expect(searchInput).not.toBeFocused();
 	});
 
-	test("search elements (prev, next, input, count) are present inline", async ({ page }) => {
+	test("search elements (prev, next, input, count) are in find panel", async ({ page }) => {
 		await page.goto("http://localhost:8080/");
 		await waitForPdfRender(page);
+
+		// Open panel first
+		await page.keyboard.press("Control+f");
 
 		await expect(page.locator("#search-input")).toBeVisible();
 		await expect(page.locator("#btn-search-prev")).toBeVisible();
@@ -69,6 +75,9 @@ test.describe("In-document Search (Phase 6)", () => {
 
 		// Allow time for buildSearchIndex to complete across all PDF pages
 		await page.waitForTimeout(2000);
+
+		// Open find panel
+		await page.keyboard.press("Control+f");
 
 		const searchInput = page.locator("#search-input");
 		await expect(searchInput).toBeVisible();
@@ -89,8 +98,9 @@ test.describe("In-document Search (Phase 6)", () => {
 		const pageInput = page.locator("#page-input");
 		await expect(pageInput).toHaveValue("1");
 
+		// Open find panel and focus search input
+		await page.keyboard.press("Control+f");
 		const searchInput = page.locator("#search-input");
-		await searchInput.click();
 		await expect(searchInput).toBeFocused();
 
 		// Press ArrowRight — should NOT flip to page 2
@@ -103,6 +113,9 @@ test.describe("In-document Search (Phase 6)", () => {
 		await waitForPdfRender(page);
 		await page.waitForTimeout(2000);
 
+		// Open find panel
+		await page.keyboard.press("Control+f");
+
 		const searchInput = page.locator("#search-input");
 		await searchInput.fill("lorem");
 
@@ -113,7 +126,7 @@ test.describe("In-document Search (Phase 6)", () => {
 		const highlights = page.locator("mark.search-mark");
 		await expect(highlights.first()).toBeAttached();
 
-		// Press escape
+		// Press escape — closes panel and clears highlights
 		await page.keyboard.press("Escape");
 
 		// After clearing, no mark.search-mark elements should remain

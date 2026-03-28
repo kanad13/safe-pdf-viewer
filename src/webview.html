@@ -174,26 +174,96 @@
 			padding: 32px;
 		}
 
-		/* ── Search (inline in toolbar) ──────────────────────── */
+		/* ── Floating Find Panel (Ctrl+F / Cmd+F) ───────────────── */
 
-		.search-input {
-			flex: 1 1 80px; /* shrinks when panel is narrow; never disappears */
-			min-width: 80px;
+		.find-panel {
+			display: none;
+			position: fixed;
+			top: 40px; /* toolbar height (~32px) + 8px gap */
+			right: 16px;
+			z-index: 100;
+			align-items: center;
+			gap: 6px;
+			padding: 5px 8px;
+			background: var(--vscode-editorWidget-background);
+			border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
+			border-radius: 4px;
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+			min-width: 260px;
+		}
+
+		.find-panel.find-panel--visible {
+			display: flex;
+		}
+
+		.find-panel__input {
+			flex: 1 1 140px;
+			min-width: 120px;
 			background: var(--vscode-input-background);
 			color: var(--vscode-input-foreground);
 			border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.3));
-			border-radius: 4px;
+			border-radius: 3px;
 			padding: 2px 6px;
 			font-size: 0.85em;
 		}
 
-		.search-count {
+		.find-panel__count {
 			font-size: 0.8em;
 			color: var(--vscode-descriptionForeground);
-			min-width: 0; /* can collapse when space is tight */
-			overflow: hidden;
+			min-width: 60px;
+			text-align: right;
 			white-space: nowrap;
-			flex-shrink: 1;
+			flex-shrink: 0;
+		}
+
+		.find-panel__btn {
+			background: transparent;
+			border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+			color: var(--vscode-editor-foreground);
+			border-radius: 3px;
+			padding: 2px 6px;
+			font-size: 0.85em;
+			cursor: pointer;
+			flex-shrink: 0;
+			transition: background 0.12s ease, border-color 0.12s ease;
+		}
+
+		.find-panel__btn:hover {
+			background: var(--vscode-list-hoverBackground);
+			border-color: var(--vscode-focusBorder);
+		}
+
+		/* ── Annotation Layer (link overlays) ─────────────────────── */
+
+		.annotationLayer {
+			position: absolute;
+			left: 0;
+			top: 0;
+			right: 0;
+			bottom: 0;
+			overflow: hidden;
+			z-index: 3; /* above text layer z-index:2 */
+			pointer-events: none;
+			--total-scale-factor: var(--scale-factor);
+			--scale-round-x: 1px;
+			--scale-round-y: 1px;
+		}
+
+		.annotationLayer .linkAnnotation {
+			position: absolute;
+			pointer-events: auto;
+			cursor: pointer;
+		}
+
+		.annotationLayer .linkAnnotation > a {
+			display: block;
+			width: 100%;
+			height: 100%;
+			outline: none;
+		}
+
+		.annotationLayer .linkAnnotation > a:hover {
+			background: rgba(255, 255, 0, 0.12);
 		}
 
 		/* ── Search highlights (injected <mark> elements) ─────── */
@@ -226,13 +296,17 @@
 		<button id="btn-zoom-fit" aria-label="Fit Page" title="Fit Page">Fit Page</button>
 		<button id="btn-zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
 
-		<div class="toolbar-sep"></div>
+	</div>
 
-		<input id="search-input" class="search-input" type="text" placeholder="Find…" aria-label="Find in document"
-			autocomplete="off" spellcheck="false" />
-		<span id="search-count" class="search-count" aria-live="polite"></span>
-		<button id="btn-search-prev" aria-label="Previous match" title="Previous match (Shift+Enter)">↑</button>
-		<button id="btn-search-next" aria-label="Next match" title="Next match (Enter)">↓</button>
+	<!-- Floating Find Panel — shown by Ctrl+F / Cmd+F, hidden by Escape -->
+	<div id="find-panel" class="find-panel" role="search" aria-label="Find in document">
+		<input id="search-input" class="find-panel__input" type="text" placeholder="Find…"
+			aria-label="Find in document" autocomplete="off" spellcheck="false" />
+		<span id="search-count" class="find-panel__count" aria-live="polite"></span>
+		<button id="btn-search-prev" class="find-panel__btn"
+			aria-label="Previous match" title="Previous match (Shift+Enter)">↑</button>
+		<button id="btn-search-next" class="find-panel__btn"
+			aria-label="Next match" title="Next match (Enter)">↓</button>
 	</div>
 
 	<!-- PDF canvas viewport -->
@@ -240,6 +314,7 @@
 		<div class="page-container" id="page-container">
 			<canvas id="pdf-canvas"></canvas>
 			<div id="text-layer" class="textLayer"></div>
+			<div id="annotation-layer" class="annotationLayer"></div>
 		</div>
 	</div>
 
@@ -257,6 +332,7 @@
 		let currentZoom = "{{DEFAULT_ZOOM}}";
 		let renderTask = null;   // Track in-flight renders to cancel on nav
 		let activeTextLayer = null; // Track instances of PDF.js TextLayer
+		let activeAnnotationLayer = null; // Track annotation layer instance
 
 		const canvas = document.getElementById("pdf-canvas");
 		const ctx = canvas.getContext("2d");
@@ -269,7 +345,9 @@
 		const pageTotal = document.getElementById("page-total");
 		const btnZoomFit = document.getElementById("btn-zoom-fit");
 
-		// ── Search state ───────────────────────────────────────────────
+		// ── Search / find panel state ──────────────────────────────────
+		const findPanel = document.getElementById("find-panel");
+		const annotationLayerDiv = document.getElementById("annotation-layer");
 		const searchInput = document.getElementById("search-input");
 		const searchCount = document.getElementById("search-count");
 		const btnSearchPrev = document.getElementById("btn-search-prev");
@@ -305,6 +383,10 @@
 			if (activeTextLayer) {
 				activeTextLayer.cancel();
 				activeTextLayer = null;
+			}
+			if (activeAnnotationLayer) {
+				annotationLayerDiv.innerHTML = "";
+				activeAnnotationLayer = null;
 			}
 
 			// Clear text layer DOM
@@ -351,6 +433,31 @@
 						viewport: pv,
 					});
 					await activeTextLayer.render();
+				}
+
+				// Render Annotation Layer (link overlays)
+				annotationLayerDiv.innerHTML = "";
+				activeAnnotationLayer = null;
+				annotationLayerDiv.style.width = Math.floor(pv.width) + "px";
+				annotationLayerDiv.style.height = Math.floor(pv.height) + "px";
+				annotationLayerDiv.style.setProperty("--scale-factor", scale);
+				annotationLayerDiv.style.setProperty("--total-scale-factor", scale);
+				if (pdfjsLib.AnnotationLayer) {
+					const annotations = await page.getAnnotations({ intent: "display" });
+					if (annotations.length > 0) {
+						activeAnnotationLayer = new pdfjsLib.AnnotationLayer({
+							div: annotationLayerDiv,
+							page,
+							viewport: pv,
+							linkService: createLinkService(),
+						});
+						await activeAnnotationLayer.render({
+							annotations,
+							renderForms: false,
+							enableScripting: false,
+							hasJSActions: false,
+						});
+					}
 				}
 
 				// Re-apply search highlights after every page render (if a search is active)
@@ -414,6 +521,12 @@
 			if ((e.ctrlKey || e.metaKey) && e.key === "f") {
 				e.preventDefault();
 				focusSearch();
+				return;
+			}
+			// Close find panel with Escape (when panel open but input not focused)
+			if (e.key === "Escape" && findPanel.classList.contains("find-panel--visible")) {
+				e.preventDefault();
+				clearSearch();
 				return;
 			}
 			if (document.activeElement === pageInput) return;
@@ -540,7 +653,7 @@
 		function applySearchHighlights(query) {
 			// Unwrap any previously injected <mark> elements, restoring plain text nodes
 			textLayerDiv.querySelectorAll("mark.search-mark").forEach(mark => {
-				mark.replaceWith(mark.textContent);
+				mark.replaceWith(...mark.childNodes);
 			});
 			textLayerDiv.normalize(); // merge adjacent text nodes left by unwrapping
 			if (!query) return;
@@ -548,16 +661,22 @@
 			const currentOcc = (searchMatches[searchMatchIdx] && searchMatches[searchMatchIdx].page === currentPage)
 				? searchMatches[searchMatchIdx].occurrenceOnPage
 				: -1;
-			const spans = textLayerDiv.querySelectorAll("span");
+
+			// Use TreeWalker to visit every text node regardless of nesting depth.
+			// This fixes the previous bug where spans with child elements were skipped.
+			const walker = document.createTreeWalker(textLayerDiv, NodeFilter.SHOW_TEXT, null);
+			const textNodes = [];
+			let node;
+			while ((node = walker.nextNode())) textNodes.push(node);
+
 			let occIdx = 0;
 			let currentEl = null;
-			for (const span of spans) {
-				// Skip spans that contain child elements (e.g. nested PDF.js markup)
-				if (span.querySelector("*")) continue;
-				const text = span.textContent;
+
+			for (const textNode of textNodes) {
+				const text = textNode.nodeValue;
 				const textLower = text.toLowerCase();
 				if (!textLower.includes(lq)) continue;
-				// Rebuild span content: plain text nodes interleaved with <mark> wrappers
+				// Rebuild around text node: plain text nodes interleaved with <mark> wrappers
 				const fragment = document.createDocumentFragment();
 				let pos = 0;
 				let matchStart;
@@ -578,7 +697,8 @@
 				if (pos < text.length) {
 					fragment.appendChild(document.createTextNode(text.slice(pos)));
 				}
-				span.replaceChildren(fragment);
+				// Replace text node in-place, preserving all surrounding elements
+				textNode.parentNode.replaceChild(fragment, textNode);
 			}
 			if (currentEl) {
 				currentEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -600,9 +720,19 @@
 			searchCount.textContent = `${searchMatchIdx + 1} of ${searchMatches.length}`;
 		}
 
-		function focusSearch() {
+		function openFindPanel() {
+			findPanel.classList.add("find-panel--visible");
 			searchInput.focus();
 			searchInput.select();
+		}
+
+		function closeFindPanel() {
+			findPanel.classList.remove("find-panel--visible");
+			searchInput.blur();
+		}
+
+		function focusSearch() {
+			openFindPanel();
 		}
 
 		function clearSearch() {
@@ -611,6 +741,7 @@
 			searchMatchIdx = -1;
 			searchCount.textContent = "";
 			applySearchHighlights("");
+			closeFindPanel();
 		}
 
 		searchInput.addEventListener("input", () => {
@@ -636,6 +767,74 @@
 
 		btnSearchPrev.addEventListener("click", () => navigateToMatch(searchMatchIdx - 1));
 		btnSearchNext.addEventListener("click", () => navigateToMatch(searchMatchIdx + 1));
+
+		// ── PDF link service (annotation layer) ──────────────────────────
+
+		/**
+		 * Minimal LinkService shim for PDF.js AnnotationLayer.
+		 * Handles external URLs (http/https only → sent to extension host) and
+		 * internal PDF destinations (navigate to target page).
+		 *
+		 * @returns {object} LinkService interface expected by AnnotationLayer
+		 */
+		function createLinkService() {
+			return {
+				/** Called by PDF.js for external URL links (data.url set). */
+				addLinkAttributes(link, url, _newWindow) {
+					let parsed;
+					try { parsed = new URL(url); } catch { return; }
+					// Block all non-http/https schemes (javascript:, data:, file:, etc.)
+					if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
+					link.href = "#";
+					link.setAttribute("data-href", url);
+					link.addEventListener("click", (e) => {
+						e.preventDefault();
+						vscode.postMessage({ type: "openLink", url });
+					});
+				},
+				/** Returns a fragment-only href for internal destination links. */
+				getDestinationHash(destination) { return destination ? "#" : ""; },
+				/** Returns a safe placeholder href for named-action anchors. */
+				getAnchorUrl(_hash) { return "#"; },
+				/** Navigates to an internal PDF destination (page ref or named dest). */
+				goToDestination(destination) {
+					if (!destination) return;
+					if (typeof destination === "string") {
+						pdfDoc.getDestination(destination).then(dest => {
+							if (dest) resolveAndGoToDestination(dest);
+						});
+					} else {
+						resolveAndGoToDestination(destination);
+					}
+				},
+				/** Handles PDF named actions (NextPage, PrevPage, etc.). */
+				executeNamedAction(action) {
+					switch (action) {
+						case "NextPage":  goNext(); break;
+						case "PrevPage":  goPrev(); break;
+						case "FirstPage": goTo(1); break;
+						case "LastPage":  if (pdfDoc) goTo(pdfDoc.numPages); break;
+					}
+				},
+			};
+		}
+
+		/**
+		 * Resolves an explicit PDF destination array to a page number and navigates.
+		 * Destination format: [ref, type, ...args] where ref is a page reference object
+		 * or a 0-based page number.
+		 *
+		 * @param {Array} dest - Explicit destination array from PDF.js
+		 */
+		async function resolveAndGoToDestination(dest) {
+			if (!Array.isArray(dest) || dest.length === 0) return;
+			const ref = dest[0];
+			try {
+				if (typeof ref === "number") { goTo(ref + 1); return; }
+				const pageIndex = await pdfDoc.getPageIndex(ref);
+				goTo(pageIndex + 1); // getPageIndex is 0-based, goTo is 1-based
+			} catch { /* ignore unresolvable destinations */ }
+		}
 
 		// ── VS Code message channel ─────────────────────────────────────
 		// Mirrors mermaid-slideshow postMessage pattern.
@@ -751,6 +950,10 @@
 			}
 			if (activeTextLayer) {
 				activeTextLayer.cancel();
+			}
+			if (activeAnnotationLayer) {
+				annotationLayerDiv.innerHTML = "";
+				activeAnnotationLayer = null;
 			}
 			if (pdfDoc) {
 				pdfDoc.destroy();
