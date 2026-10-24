@@ -12,7 +12,8 @@ Read [architecture.md](architecture.md) first for the design, then [development.
 - [development.md](development.md): setup, workflow, manual testing and the release procedure.
 - [testing.md](testing.md): which test proves each user workflow, and the manual checks that remain.
 - [dependencies.md](dependencies.md): version policy and the quarterly review procedure.
-- [decision-log.md](decision-log.md): ideas not built and the condition that would reopen each. It is not a backlog.
+- [workflows.md](workflows.md): the procedure and stopping point for each kind of request.
+- [decisions.md](decisions.md): ideas not built and the condition that would reopen each. It is not a backlog.
 
 ## Navigation
 

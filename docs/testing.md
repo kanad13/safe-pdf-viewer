@@ -48,6 +48,7 @@ Three layers of evidence cover the extension:
 | Switch away from a tab and back           | `render.spec.js` (state saved and restored, invalid zoom ignored)                                                                                      |
 | Close the tab                             | `lifecycle.spec.js` (teardown without errors)                                                                                                          |
 | Open a PDF with an undecodable image      | `render.spec.js` (page stays usable)                                                                                                                   |
+| Keep the documents consistent             | `docs.test.js` (links, heading anchors, task routing against `docs/workflows.md`)                                                                      |
 | Install the package                       | `package.test.js` (file list, manifest pairing, bundle checks)                                                                                         |
 | Security invariants                       | `webview-template.test.js` (CSP, escaping, no dynamic `innerHTML`); `extension-host.test.js` (roots, links); `package.test.js` (no eval in the bundle) |
 
