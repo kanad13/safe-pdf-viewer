@@ -11,8 +11,8 @@
 		"url": "https://github.com/kanad13/safe-pdf-viewer/issues"
 	},
 	"engines": {
-		"vscode": "^1.109.0",
-		"node": ">=18.0.0"
+		"vscode": "^1.105.0",
+		"node": ">=22.13.0"
 	},
 	"categories": [
 		"Visualization"
@@ -83,12 +83,12 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
-		"@playwright/test": "^1.58.2",
-		"@types/node": "^25.2.3",
-		"@types/vscode": "^1.109.0",
-		"@vscode/vsce": "^3.7.1",
-		"eslint": "^10.0.0",
-		"http-server": "^14.1.1"
+		"@playwright/test": "^1.64.0",
+		"@types/node": "^22.20.5",
+		"@types/vscode": "1.105.0",
+		"@vscode/vsce": "^4.0.0",
+		"eslint": "^10.13.0",
+		"prettier": "^3.9.9"
 	},
 	"repository": {
 		"type": "git",

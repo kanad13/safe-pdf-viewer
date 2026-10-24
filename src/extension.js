@@ -1,4 +1,4 @@
-// PDF.js bundled version: 5.5.207 (lib/pdfjs/pdf.mjs + pdf.worker.mjs)
+// PDF.js bundled version: 6.4.299 (lib/pdfjs/pdf.mjs + pdf.worker.mjs)
 
 const vscode = require("vscode");
 const path = require("path");
