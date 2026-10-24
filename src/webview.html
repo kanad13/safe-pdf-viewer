@@ -320,7 +320,9 @@
 	<script type="module" nonce="{{NONCE}}">
 		// ── PDF.js setup ───────────────────────────────────────────────
 		// Loaded from local bundle — no CDN, works fully offline.
-		// isEvalSupported: false disables PDF JavaScript execution.
+		// PDF.js never runs document scripts here (no scripting sandbox is bundled and the
+		// annotation layer is rendered with enableScripting: false). isEvalSupported: false keeps
+		// PDF functions out of eval for PDF.js releases that honour it; the CSP forbids eval anyway.
 		import * as pdfjsLib from "{{PDFJS_URI}}";
 
 		pdfjsLib.GlobalWorkerOptions.workerSrc = "{{WORKER_URI}}";
@@ -892,7 +894,7 @@
 			const loadingTask = pdfjsLib.getDocument({
 				url,
 				password: password ?? undefined,
-				isEvalSupported: false,   // Disable PDF JavaScript
+				isEvalSupported: false,   // Never compile document content with eval
 				disableFontFace: false,
 			});
 			try {

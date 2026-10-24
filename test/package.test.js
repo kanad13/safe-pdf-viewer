@@ -22,6 +22,20 @@ describe("manifest", () => {
 		assert.ok(header.includes(bundled[1]), `header "${header}" vs bundle ${bundled[1]}`);
 	});
 
+	it("bundles the PDF.js legacy build, which polyfills what the floor's Chromium lacks", () => {
+		for (const file of ["pdf.mjs", "pdf.worker.mjs"]) {
+			const text = fs.readFileSync(path.join(root, "lib/pdfjs", file), "utf8");
+			assert.match(text, /`Uint8Array\.prototype\.toHex` method/, `${file} lacks the polyfills`);
+		}
+	});
+
+	it("bundles no eval or Function constructor, which the CSP would block", () => {
+		for (const file of ["pdf.mjs", "pdf.worker.mjs"]) {
+			const text = fs.readFileSync(path.join(root, "lib/pdfjs", file), "utf8");
+			assert.doesNotMatch(text, /\bnew Function\s*\(|\beval\s*\(/, file);
+		}
+	});
+
 	it("uses caret ranges or exact pins only, never tags", () => {
 		for (const [name, range] of Object.entries(manifest.devDependencies)) {
 			assert.match(range, /^\^?\d+\.\d+\.\d+$/, `${name}: ${range}`);
