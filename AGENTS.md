@@ -17,6 +17,28 @@ This file is the single shared instruction file for coding agents. It stays shor
   - `src/webview.html` holds the webview page, styles and script.
   - `lib/pdfjs/` holds the committed PDF.js bundle. The version sits in the first line of `src/extension.js`.
 
+## Task routing
+
+Match the maintainer's request to a workflow in [docs/workflows.md](docs/workflows.md) and run it. Stop at the stopping point that the workflow names. The workflow column must equal a heading in that guide; `test/docs.test.js` checks it.
+
+| If the maintainer says...                                                     | Run workflow                  |
+| :---------------------------------------------------------------------------- | :---------------------------- |
+| "Evaluate adding X", "Is X worth it?", "Add a dependency"                     | Evaluate a Change             |
+| "Add X", "Implement X" (after approval)                                       | Build an Approved Change      |
+| "Update", "upgrade", "maintain", "dependency review", "is the repo current?"  | Maintain and Upgrade          |
+| "X is broken", "fix this bug", "this PDF renders wrong"                       | Fix a Defect                  |
+| "Someone reported a vulnerability", "security report", "is this exploitable?" | Handle a Vulnerability Report |
+| "Release", "publish", "ship it"                                               | Release                       |
+| "Check for drift", "sync the repo", "are the docs accurate?"                  | Sync and Audit                |
+| "Update the docs", "rewrite the README"                                       | Change Documentation          |
+
+- **No match:**
+  - A question about the code or the docs gets an answer and no file changes.
+  - Any other request that matches no row or several rows: name the closest workflow and ask the maintainer to confirm it.
+- **Evidence:**
+  - Verify claims about libraries, store rules, and behavior against the code, a command's output, or primary documentation.
+  - Report a check as passed only if you ran it.
+
 ## Architecture rules
 
 - **Structure:**
@@ -30,6 +52,15 @@ This file is the single shared instruction file for coding agents. It stays shor
   - `CustomReadonlyEditorProvider` semantics: the extension never writes to disk.
   - Link targets reach `openExternal` only after `toExternalUrl()` accepts them (http and https).
   - Document text never becomes markup: no `innerHTML` with dynamic content.
+
+### Security gate
+
+Run this before you report any change to `src/`, `lib/pdfjs/`, the manifest, or a dependency as complete.
+
+- Confirm that every security invariant above still holds in the code.
+- Walk through the [security checklist for webview changes](docs/development.md#security-checklist-for-webview-changes).
+- Confirm that the unit test for each invariant fails when you break that invariant on purpose.
+- When an invariant must change, stop and report it to the maintainer. A weakening needs a documented security review, recorded in [docs/decisions.md](docs/decisions.md).
 
 ## Code style
 
@@ -65,4 +96,5 @@ This file is the single shared instruction file for coding agents. It stays shor
 - [docs/testing.md](docs/testing.md): the canonical testing guide.
 - [docs/architecture.md](docs/architecture.md): design and security model.
 - [docs/development.md](docs/development.md): setup, workflow and release procedure.
-- [docs/decision-log.md](docs/decision-log.md): ideas not built and why. It is context, not a task list; nothing in it is scheduled.
+- [docs/workflows.md](docs/workflows.md): the procedure and stopping point for each kind of request.
+- [docs/decisions.md](docs/decisions.md): ideas not built and why. It is context, not a task list; nothing in it is scheduled.

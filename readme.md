@@ -55,7 +55,7 @@ Scrolling past the end of a page turns to the next page.
 ### Limits
 
 - **Images:**
-  - JPEG 2000 and JBIG2 images render as blank areas. Decoding them needs a looser security policy. [docs/decision-log.md](docs/decision-log.md) explains the choice.
+  - JPEG 2000 and JBIG2 images render as blank areas. Decoding them needs a looser security policy. [docs/decisions.md](docs/decisions.md) explains the choice.
 - **Fonts:**
   - Documents that reference fonts without embedding them use your system fonts.
 - **Scope:**
@@ -83,7 +83,8 @@ Report vulnerabilities as described in [SECURITY.md](SECURITY.md). The security 
 - [docs/testing.md](docs/testing.md): how each workflow is tested and which checks stay manual.
 - [docs/dependencies.md](docs/dependencies.md): version policy and the quarterly review.
 - [docs/architecture.md](docs/architecture.md): design and security model.
-- [docs/decision-log.md](docs/decision-log.md): ideas not built, and what would reopen them.
+- [docs/workflows.md](docs/workflows.md): the procedure and stopping point for each kind of request.
+- [docs/decisions.md](docs/decisions.md): ideas not built, and what would reopen them.
 - [AGENTS.md](AGENTS.md): instructions for coding agents.
 - [CHANGELOG.md](CHANGELOG.md): version history.
 
