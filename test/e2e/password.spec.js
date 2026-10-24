@@ -1,48 +1,44 @@
-/* global document */
 const { test, expect } = require("@playwright/test");
+const { openViewer, waitForPage, posted, PASSWORD, PLAIN } = require("./helpers");
+
+const prompts = async (page) => (await posted(page)).filter((m) => m.type === "passwordRequired");
 
 test.describe("Password-protected PDFs", () => {
-	test("normal PDF loads without triggering password flow", async ({ page }) => {
-		const passwordMessages = [];
-		page.on("console", (msg) => {
-			const text = msg.text();
-			if (text.includes("passwordRequired")) {
-				passwordMessages.push(text);
-			}
-		});
-
-		await page.goto("http://localhost:8080/");
-
-		// Wait for canvas to render — same pattern as renders-canvas.spec.js
-		await page.waitForFunction(
-			() => {
-				const c = document.getElementById("pdf-canvas");
-				return c && c.width > 0 && c.height > 0;
-			},
-			{ timeout: 15000 },
-		);
-
-		// A non-password PDF must not trigger the passwordRequired flow
-		expect(passwordMessages).toHaveLength(0);
+	test("an unprotected file never asks for a password", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN });
+		expect(await prompts(page)).toEqual([]);
 	});
 
-	test("password flow infrastructure is present in page source", async ({ page }) => {
-		await page.goto("http://localhost:8080/");
+	test("asks once, then renders with the right password", async ({ page }) => {
+		await openViewer(page, { pdf: PASSWORD, password: "secret" });
+		await waitForPage(page, 1);
+		expect(await prompts(page)).toEqual([{ type: "passwordRequired", isWrongPassword: false }]);
+		await expect(page.locator("#text-layer")).toContainText("Page 1 alpha");
+	});
 
-		// Verify page source (served webview.html) contains password flow functions
-		const source = await page.content();
-		expect(source).toContain("waitForPasswordReply");
-		expect(source).toContain("loadPdf");
-		expect(source).toContain("passwordRequired");
+	test("asks again after a wrong password and gives up after three tries", async ({ page }) => {
+		await openViewer(page, { pdf: PASSWORD, password: "nope", wait: false });
+		await expect(page.locator(".status-message")).toHaveText(
+			"Too many incorrect password attempts.",
+		);
+		expect(await prompts(page)).toEqual([
+			{ type: "passwordRequired", isWrongPassword: false },
+			{ type: "passwordRequired", isWrongPassword: true },
+			{ type: "passwordRequired", isWrongPassword: true },
+		]);
+	});
 
-		// Confirm no console.log of a password value is wired up
-		const hasPasswordLog = await page.evaluate(() => {
-			const scripts = Array.from(document.querySelectorAll("script"));
-			return scripts.some((s) =>
-				s.textContent.includes("console.log") &&
-				s.textContent.includes("password"),
-			);
-		});
-		expect(hasPasswordLog).toBe(false);
+	test("cancelling the prompt leaves a clear message", async ({ page }) => {
+		await openViewer(page, { pdf: PASSWORD, wait: false });
+		await expect(page.locator(".status-message")).toHaveText("Password required to open this PDF.");
+		expect(await prompts(page)).toHaveLength(1);
+	});
+
+	test("the password never reaches the console or the DOM", async ({ page }) => {
+		const logs = [];
+		page.on("console", (m) => logs.push(m.text()));
+		await openViewer(page, { pdf: PASSWORD, password: "secret" });
+		expect(logs.join("\n")).not.toContain("secret");
+		expect(await page.content()).not.toContain("secret");
 	});
 });

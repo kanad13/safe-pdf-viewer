@@ -1,4 +1,17 @@
-// PDF.js bundled version: 5.5.207 (lib/pdfjs/pdf.mjs + pdf.worker.mjs)
+// PDF.js bundled version: 6.4.299 (lib/pdfjs/pdf.mjs + pdf.worker.mjs)
+
+/**
+ * Extension host for Safe PDF Viewer: registers the read-only PDF editor and builds its webview.
+ *
+ * Why it exists: VS Code needs a host-side provider to open `.pdf` files, and the webview that
+ * renders them is untrusted because it parses attacker-controlled documents. Everything that must
+ * be decided outside the webview lives here: the Content Security Policy, which folders the webview
+ * may read, which messages it may send, and which links may leave the editor.
+ *
+ * Invariants: the CSP denies by default and gates scripts by nonce; `localResourceRoots` lists only
+ * `lib/pdfjs/` and the PDF's directory; the provider never writes; messages from the webview are
+ * type-checked before use; only http(s) links reach `openExternal`. See docs/architecture.md.
+ */
 
 const vscode = require("vscode");
 const path = require("path");
@@ -23,44 +36,23 @@ const VALID_ZOOM_VALUES = new Set(["fit-page", "50", "75", "100", "125", "150", 
  * @returns {string} Zoom value: "fit-page" | "50" | "75" | "100" | "125" | "150" | "200"
  */
 function getDefaultZoom() {
-	const v = vscode.workspace
-		.getConfiguration("safePdfViewer")
-		.get("defaultZoom", "fit-page");
+	const v = vscode.workspace.getConfiguration("safePdfViewer").get("defaultZoom", "fit-page");
 	return VALID_ZOOM_VALUES.has(v) ? v : "fit-page";
 }
 
 /**
- * Generates the viewer webview HTML from the template file.
+ * Builds the Content Security Policy for the viewer webview.
  *
- * Reads src/webview.html and replaces placeholder tokens with runtime values.
+ * `default-src 'none'` plus an explicit allow-list keeps a hostile PDF from loading anything the
+ * viewer did not ask for. `style-src 'unsafe-inline'` is required because PDF.js positions text
+ * and annotation elements with inline styles; scripts stay nonce-gated.
  *
- * Token map (replaced in webview.html at runtime):
- *   {{NONCE}}        → CSP nonce (on the script tag)
- *   {{PDFJS_URI}}    → webview-safe URI for lib/pdfjs/pdf.mjs
- *   {{WORKER_URI}}   → webview-safe URI for lib/pdfjs/pdf.worker.mjs
- *   {{DEFAULT_ZOOM}} → starting zoom value from settings
- *
- * CSP is injected by inserting a <meta> tag after the charset meta —
- * no template token used, avoiding any VS Code webview pre-processing conflicts.
- *
- * @param {vscode.WebviewPanel} panel - The webview panel (needed for asWebviewUri and cspSource)
- * @param {vscode.Uri} extensionUri - The extension's installation URI
  * @param {string} nonce - CSP nonce token
- * @returns {string} Complete HTML page
+ * @param {string} cspSource - Origin from which the webview serves extension and document files
+ * @returns {string} Policy string for the meta tag's content attribute
  */
-function getWebviewContent(panel, extensionUri, nonce) {
-	// Convert file URIs to webview-safe resource URIs
-	const pdfjsUri = panel.webview
-		.asWebviewUri(vscode.Uri.joinPath(extensionUri, "lib", "pdfjs", "pdf.mjs"))
-		.toString();
-	const workerUri = panel.webview
-		.asWebviewUri(
-			vscode.Uri.joinPath(extensionUri, "lib", "pdfjs", "pdf.worker.mjs"),
-		)
-		.toString();
-	const defaultZoom = getDefaultZoom();
-	const cspSource = panel.webview.cspSource;
-	const cspContent = [
+function buildCsp(nonce, cspSource) {
+	return [
 		"default-src 'none'",
 		`script-src 'nonce-${nonce}' 'strict-dynamic'`,
 		`worker-src blob: ${cspSource}`,
@@ -68,22 +60,135 @@ function getWebviewContent(panel, extensionUri, nonce) {
 		"style-src 'unsafe-inline'",
 		"img-src data:",
 	].join("; ");
-	const cspTag = `<meta http-equiv="Content-Security-Policy" content="${cspContent}">`;
+}
 
-	const templatePath = path.join(__dirname, "webview.html");
-	let html = fs.readFileSync(templatePath, "utf8");
+/**
+ * Escapes a value for use inside a double-quoted JavaScript string literal that sits in an inline
+ * <script> element. `<` is escaped so no value can close the script element.
+ *
+ * @param {string} value - Raw value
+ * @returns {string} Escaped text without surrounding quotes
+ */
+function escapeForScriptString(value) {
+	return JSON.stringify(String(value)).slice(1, -1).replace(/</g, "\\u003c");
+}
 
-	// Inject CSP meta tag after the charset declaration (reliable unique anchor)
-	html = html.replace(
-		"<meta charset=\"UTF-8\">",
-		`<meta charset="UTF-8">\n\t${cspTag}`,
+const CHARSET_META = '<meta charset="UTF-8">';
+const TEMPLATE_PATTERN =
+	/<meta charset="UTF-8">|\{\{(NONCE|PDFJS_URI|WORKER_URI|DEFAULT_ZOOM)\}\}/g;
+
+/**
+ * Renders the webview template in a single pass.
+ *
+ * One pass with function replacers guarantees that substituted text is never scanned again and
+ * that `$` sequences inside file paths are not interpreted as replacement patterns.
+ *
+ * Tokens: {{NONCE}} (script tag nonce), {{PDFJS_URI}} and {{WORKER_URI}} (webview URIs of the
+ * bundled PDF.js files), {{DEFAULT_ZOOM}} (starting zoom). The CSP meta tag is inserted after the
+ * charset declaration so the template needs no CSP token.
+ *
+ * @param {string} template - Contents of src/webview.html
+ * @param {{nonce: string, pdfjsUri: string, workerUri: string, defaultZoom: string, cspSource: string}} values
+ * @returns {string} Complete HTML page
+ */
+function renderWebviewHtml(template, values) {
+	const substitutions = {
+		NONCE: values.nonce,
+		PDFJS_URI: escapeForScriptString(values.pdfjsUri),
+		WORKER_URI: escapeForScriptString(values.workerUri),
+		DEFAULT_ZOOM: escapeForScriptString(values.defaultZoom),
+	};
+	const cspTag = `<meta http-equiv="Content-Security-Policy" content="${buildCsp(values.nonce, values.cspSource)}">`;
+	return template.replace(TEMPLATE_PATTERN, (match, token) =>
+		token ? substitutions[token] : `${CHARSET_META}\n\t${cspTag}`,
 	);
-	html = html.replace(/\{\{NONCE\}\}/g, nonce);
-	html = html.replace("{{PDFJS_URI}}", pdfjsUri);
-	html = html.replace("{{WORKER_URI}}", workerUri);
-	html = html.replace("{{DEFAULT_ZOOM}}", defaultZoom);
+}
 
-	return html;
+/**
+ * Generates the viewer webview HTML from the template file.
+ *
+ * @param {vscode.WebviewPanel} panel - The webview panel (needed for asWebviewUri and cspSource)
+ * @param {vscode.Uri} extensionUri - The extension's installation URI
+ * @param {string} nonce - CSP nonce token
+ * @returns {string} Complete HTML page
+ */
+function getWebviewContent(panel, extensionUri, nonce) {
+	const toWebviewUri = (...segments) =>
+		panel.webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, ...segments)).toString();
+	const template = fs.readFileSync(path.join(__dirname, "webview.html"), "utf8");
+	return renderWebviewHtml(template, {
+		nonce,
+		pdfjsUri: toWebviewUri("lib", "pdfjs", "pdf.mjs"),
+		workerUri: toWebviewUri("lib", "pdfjs", "pdf.worker.mjs"),
+		defaultZoom: getDefaultZoom(),
+		cspSource: panel.webview.cspSource,
+	});
+}
+
+/**
+ * Parses a link target from the webview and returns it only when it is an http(s) URL.
+ *
+ * @param {unknown} url - Value received from the webview
+ * @returns {string|null} Normalised URL string, or null when the scheme is not allowed
+ */
+function toExternalUrl(url) {
+	if (typeof url !== "string") {
+		return null;
+	}
+	try {
+		const parsed = new URL(url);
+		return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Creates the handler for messages posted by the viewer webview.
+ *
+ * The webview is the less trusted side of the channel (it renders attacker-controlled PDFs), so
+ * every field is type-checked before use. The password flow is a round trip: the webview posts
+ * "passwordRequired", the host prompts and replies with "password" or "passwordCancelled". The
+ * password is never logged or persisted.
+ *
+ * @param {vscode.Webview} webview - Webview that receives replies
+ * @param {vscode.Uri} pdfFileUri - Document shown in the webview
+ * @returns {(message: unknown) => Promise<void>} Message handler
+ */
+function createMessageHandler(webview, pdfFileUri) {
+	return async (message) => {
+		if (!message || typeof message !== "object") {
+			return;
+		}
+		if (message.type === "ready") {
+			webview.postMessage({
+				type: "init",
+				pdfUrl: webview.asWebviewUri(pdfFileUri).toString(),
+			});
+		} else if (message.type === "passwordRequired") {
+			const pwd = await vscode.window.showInputBox({
+				password: true,
+				prompt:
+					message.isWrongPassword === true
+						? "Incorrect password. Try again."
+						: "Enter PDF password",
+				ignoreFocusOut: true,
+			});
+			if (pwd === undefined) {
+				webview.postMessage({ type: "passwordCancelled" });
+			} else {
+				webview.postMessage({ type: "password", value: pwd });
+			}
+		} else if (message.type === "openLink") {
+			// Open the URL that passed validation, not the raw string, so the checked and the
+			// opened target cannot differ.
+			const target = toExternalUrl(message.url);
+			if (target) {
+				await vscode.env.openExternal(vscode.Uri.parse(target));
+			}
+		}
+		// State persistence (page/zoom) is handled via vscode.setState in the webview.
+	};
 }
 
 /**
@@ -104,13 +209,11 @@ class SafePdfEditorProvider {
 	 * Called by VS Code when a .pdf file is opened or revealed.
 	 *
 	 * Sets up the webview with correct CSP, localResourceRoots, and initial content.
-	 * Listens for "ready" message from webview to send the init payload.
 	 *
 	 * @param {vscode.CustomDocument} document - The opened PDF document
 	 * @param {vscode.WebviewPanel} webviewPanel - The panel VS Code allocated
-	 * @param {vscode.CancellationToken} _token - Cancellation token (unused)
 	 */
-	resolveCustomEditor(document, webviewPanel, _token) {
+	resolveCustomEditor(document, webviewPanel) {
 		const extensionUri = this._context.extensionUri;
 		const pdfFileUri = document.uri;
 
@@ -123,53 +226,11 @@ class SafePdfEditorProvider {
 			],
 		};
 
-		const nonce = getNonce();
-		webviewPanel.webview.html = getWebviewContent(
-			webviewPanel,
-			extensionUri,
-			nonce,
-		);
+		webviewPanel.webview.html = getWebviewContent(webviewPanel, extensionUri, getNonce());
 
 		const disposables = [];
-
-		// Wait for webview to signal it is ready, then send initialization data.
-		// The password flow uses async message round-trips: the webview posts
-		// "passwordRequired" → extension prompts the user → posts "password" or
-		// "passwordCancelled" back. The password value is never logged or persisted.
 		webviewPanel.webview.onDidReceiveMessage(
-			async (message) => {
-				if (message.type === "ready") {
-					webviewPanel.webview.postMessage({
-						type: "init",
-						pdfUrl: webviewPanel.webview.asWebviewUri(pdfFileUri).toString(),
-					});
-				} else if (message.type === "passwordRequired") {
-					const pwd = await vscode.window.showInputBox({
-						password: true,
-						prompt: message.isWrongPassword
-							? "Incorrect password. Try again."
-							: "Enter PDF password",
-						ignoreFocusOut: true,
-					});
-					if (pwd === undefined) {
-						webviewPanel.webview.postMessage({ type: "passwordCancelled" });
-					} else {
-						webviewPanel.webview.postMessage({ type: "password", value: pwd });
-					}
-				} else if (message.type === "openLink") {
-					// Open external PDF hyperlinks in the system browser.
-					// Only http/https allowed — all other schemes are blocked.
-					try {
-						const parsed = new URL(message.url);
-						if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-							await vscode.env.openExternal(vscode.Uri.parse(message.url));
-						}
-					} catch {
-						// Malformed URL — ignore silently
-					}
-				}
-				// State persistence (page/zoom) is handled via vscode.setState in the webview.
-			},
+			createMessageHandler(webviewPanel.webview, pdfFileUri),
 			null,
 			disposables,
 		);
@@ -189,12 +250,9 @@ class SafePdfEditorProvider {
 	 * For a read-only viewer the default CustomDocument is sufficient.
 	 *
 	 * @param {vscode.Uri} uri - URI of the file being opened
-	 * @param {{ backupId?: string }} _openContext - Opening context (unused)
-	 * @param {vscode.CancellationToken} _token - Cancellation token (unused)
 	 * @returns {vscode.CustomDocument} The document object
 	 */
-	openCustomDocument(uri, _openContext, _token) {
-		// Minimal CustomDocument — we only need the URI for read-only viewing.
+	openCustomDocument(uri) {
 		return { uri, dispose() {} };
 	}
 }
@@ -202,14 +260,12 @@ class SafePdfEditorProvider {
 /**
  * Activation function — called when the extension loads.
  *
- * Registers the SafePdfEditorProvider. New panels read the zoom default from
- * VS Code config at open time; no onDidChangeConfiguration listener is registered.
+ * Registers the SafePdfEditorProvider. New panels read the zoom default from VS Code config at
+ * open time; open panels keep the zoom they started with because zoom is per-session UI state.
  *
  * @param {vscode.ExtensionContext} context - Extension context provided by VS Code
  */
 function activate(context) {
-	console.log("safePdfViewer extension activated");
-
 	const provider = new SafePdfEditorProvider(context);
 
 	const registration = vscode.window.registerCustomEditorProvider(
@@ -225,12 +281,12 @@ function activate(context) {
 	);
 
 	context.subscriptions.push(registration);
-
-	// NOTE: onDidChangeConfiguration for zoom default affects only newly opened PDFs.
-	// Currently open panels are not re-rendered (zoom is a per-session UI state).
-	// If full re-render on settings change is desired in future, add that logic here.
 }
 
+/**
+ * Deactivation hook. Nothing to release: editor registrations are disposed through
+ * `context.subscriptions`.
+ */
 function deactivate() {}
 
 module.exports = {
@@ -239,4 +295,9 @@ module.exports = {
 	getNonce,
 	getDefaultZoom,
 	getWebviewContent,
+	buildCsp,
+	renderWebviewHtml,
+	toExternalUrl,
+	createMessageHandler,
+	SafePdfEditorProvider,
 };

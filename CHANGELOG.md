@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-10-24
+
+### Added
+
+- Works in Restricted Mode, so PDFs open in workspaces you have not marked as trusted
+
+### Changed
+
+- Updated the bundled PDF.js to 6.4.299
+- Supports VS Code 1.105 and later (previously 1.109)
+
+### Fixed
+
+- Rapid page turns with the keyboard now continue from the page you asked for instead of repeating the page that is still drawing
+- The page number field returns to the current page when you type a number outside the document
+- A search typed while the document is still being indexed now returns results once indexing finishes
+
 ## [1.1.0] - 2026-03-28
 
 ### Added
@@ -56,6 +73,7 @@ All notable changes to this project will be documented in this file.
 ## [0.1.0] - 2026-03-26
 
 ### Added
+
 - Initial release: read-only PDF viewer using locally bundled PDF.js
 - Page navigation via keyboard (arrow keys, PageUp/PageDown), scroll wheel, and toolbar buttons
 - Zoom controls: fit-page, 50%–200%, +/− step buttons

@@ -1,22 +1,24 @@
+# Allow-list style: everything not needed at run time stays out of the package.
 .vscode/**
-.vscode-test/**
+.github/**
 node_modules/**
 test/**
 docs/**
 examples/**
-plan.md
-remediation-plan.md
+AGENTS.md
+WORKPLAN.md
 CLAUDE.md
 .claude/**
-REUSE_ANALYSIS.md
 .gitignore
-.eslintignore
+.nvmrc
+.prettierignore
+.prettierrc.json
 eslint.config.js
 jsconfig.json
 playwright.config.js
 **/.DS_Store
 
-# Exclude PDF.js source maps (keep only the .mjs bundles)
+# PDF.js source maps are not shipped; only the .mjs bundles are needed.
 lib/pdfjs/*.map
 
 playwright-report/**

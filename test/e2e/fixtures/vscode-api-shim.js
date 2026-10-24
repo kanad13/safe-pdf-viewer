@@ -1,44 +1,41 @@
-/* global window */ /**
- * Mock for VS Code Webview API injected in Playwright tests.
+/**
+ * Stand-in for the VS Code webview API and the extension host's init message.
  *
- * The postMessage mock handles the password round-trip: if the webview sends
- * { type: "passwordRequired" }, it immediately responds with a test password
- * via window.postMessage so the loadPdf retry loop can proceed.
+ * Query parameters: `pdf` (served path, default the example document), `password` (reply to a
+ * password prompt; absent means the user cancels). Everything the page posts is kept in
+ * `window.__posted` so tests assert on messages instead of console output.
  */
+const RESOURCE_ORIGIN = "http://127.0.0.1:8081";
+const params = new URLSearchParams(window.location.search);
+window.__posted = [];
+window.__state = window.__initialState ?? null;
+
 window.acquireVsCodeApi = function () {
 	return {
 		postMessage: (msg) => {
-			console.log("Mock acquireVsCodeApi postMessage:", msg);
+			window.__posted.push(msg);
 			if (msg && msg.type === "passwordRequired") {
-				// Respond with a test password so the retry loop can proceed in tests.
-				// Real extension would call vscode.window.showInputBox here.
-				window.postMessage({ type: "password", value: "testpassword" }, "*");
-			} else if (msg && msg.type === "openLink") {
-				// In tests, log intercepted link clicks — real extension opens in browser.
-				console.log("Mock acquireVsCodeApi: openLink intercepted:", msg.url);
+				const password = params.get("password");
+				setTimeout(() => {
+					window.postMessage(
+						password === null
+							? { type: "passwordCancelled" }
+							: { type: "password", value: password },
+						"*",
+					);
+				}, 0);
 			}
 		},
 		setState: (state) => {
-			console.log("Mock acquireVsCodeApi setState:", state);
+			window.__state = state;
 		},
-		getState: () => {
-			return {};
-		},
+		getState: () => window.__state,
 	};
 };
 
 window.addEventListener("load", () => {
-	// Determine the path to the PDF based on the server
-	// Usually it will be served up relative to the root or test directory
-	const pdfUrl = "/examples/test.pdf";
-
-	// Dispatch the initialization message that the real extension would send
 	window.postMessage(
-		{
-			type: "init",
-			pdfUrl: pdfUrl,
-			defaultZoom: "fit-page",
-		},
+		{ type: "init", pdfUrl: RESOURCE_ORIGIN + (params.get("pdf") || "/examples/test.pdf") },
 		"*",
 	);
 });

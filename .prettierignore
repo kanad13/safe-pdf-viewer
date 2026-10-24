@@ -1,0 +1,8 @@
+node_modules/
+lib/
+package-lock.json
+test-results/
+playwright-report/
+*.vsix
+# Template with placeholder tokens and an inline module script; Prettier rewrites it without benefit.
+src/webview.html

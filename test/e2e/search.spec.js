@@ -1,135 +1,117 @@
-/* global document */
 const { test, expect } = require("@playwright/test");
+const { openViewer, waitForPage, search, PLAIN } = require("./helpers");
 
-/**
- * Waits until the PDF canvas has rendered at least one pixel
- * (i.e., the PDF has been loaded and the first page rendered).
- */
-async function waitForPdfRender(page) {
-	await page.waitForFunction(() => {
-		const c = document.getElementById("pdf-canvas");
-		return c && c.width > 0 && c.height > 0;
-	}, { timeout: 15000 });
-}
+// plain.pdf: three pages, each reading "Page N alpha markerN alpha" (6 matches for "alpha").
 
-test.describe("In-document Search", () => {
-	test("find panel is hidden on initial load", async ({ page }) => {
-		await page.goto("http://localhost:8080/");
-		await waitForPdfRender(page);
-
-		const findPanel = page.locator("#find-panel");
-		await expect(findPanel).toBeAttached();
-		await expect(findPanel).not.toBeVisible();
-	});
-
-	test("Ctrl+F opens the find panel and focuses the search input", async ({ page }) => {
-		await page.goto("http://localhost:8080/");
-		await waitForPdfRender(page);
-
-		const findPanel = page.locator("#find-panel");
-		const searchInput = page.locator("#search-input");
-
-		await expect(findPanel).not.toBeVisible();
-
+test.describe("Find in document", () => {
+	test("Ctrl+F opens a focused panel; Escape closes it and clears the query", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN });
+		await expect(page.locator("#find-panel")).not.toBeVisible();
 		await page.keyboard.press("Control+f");
-
-		await expect(findPanel).toBeVisible();
-		await expect(searchInput).toBeFocused();
-	});
-
-	test("Escape closes the find panel and clears the input", async ({ page }) => {
-		await page.goto("http://localhost:8080/");
-		await waitForPdfRender(page);
-
-		// Open panel
-		await page.keyboard.press("Control+f");
-		const findPanel = page.locator("#find-panel");
-		await expect(findPanel).toBeVisible();
-
-		const searchInput = page.locator("#search-input");
-		await searchInput.fill("test");
-		await expect(searchInput).toHaveValue("test");
-
-		// Escape closes panel and clears input
+		await expect(page.locator("#find-panel")).toBeVisible();
+		await expect(page.locator("#search-input")).toBeFocused();
+		await page.locator("#search-input").fill("alpha");
 		await page.keyboard.press("Escape");
-		await expect(findPanel).not.toBeVisible();
-		await expect(searchInput).toHaveValue("");
+		await expect(page.locator("#find-panel")).not.toBeVisible();
+		await expect(page.locator("#search-input")).toHaveValue("");
 	});
 
-	test("search elements (prev, next, input, count) are in find panel", async ({ page }) => {
-		await page.goto("http://localhost:8080/");
-		await waitForPdfRender(page);
-
-		// Open panel first
-		await page.keyboard.press("Control+f");
-
-		await expect(page.locator("#search-input")).toBeVisible();
-		await expect(page.locator("#btn-search-prev")).toBeVisible();
-		await expect(page.locator("#btn-search-next")).toBeVisible();
-		await expect(page.locator("#search-count")).toBeAttached();
+	test("Cmd+F opens the panel too", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN });
+		await page.keyboard.press("Meta+f");
+		await expect(page.locator("#find-panel")).toBeVisible();
 	});
 
-	test("typing a query produces a non-empty match count", async ({ page }) => {
-		await page.goto("http://localhost:8080/");
-		await waitForPdfRender(page);
-
-		// Allow time for buildSearchIndex to complete across all PDF pages
-		await page.waitForTimeout(2000);
-
-		// Open find panel
-		await page.keyboard.press("Control+f");
-
-		const searchInput = page.locator("#search-input");
-		await expect(searchInput).toBeVisible();
-
-		// Searching for 'lorem' which appears in the test PDF.
-		await searchInput.fill("lorem");
-
-		const searchCount = page.locator("#search-count");
-		// Wait for count to be populated (input event triggers runSearch)
-		await expect(searchCount).not.toHaveText("", { timeout: 5000 });
+	test("counts matches across all pages and highlights those on the current page", async ({
+		page,
+	}) => {
+		await openViewer(page, { pdf: PLAIN });
+		await search(page, "alpha", "1 of 6");
+		await expect(page.locator("mark.search-mark")).toHaveCount(2);
+		await expect(page.locator("mark.search-highlight-current")).toHaveCount(1);
 	});
 
-	test("navigation keys (arrow) do not trigger page turns when search input is focused", async ({ page }) => {
-		await page.goto("http://localhost:8080/");
-		await waitForPdfRender(page);
+	test("matching ignores case", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN });
+		await search(page, "ALPHA", "1 of 6");
+	});
 
-		// Wait for first page to be ready
-		const pageInput = page.locator("#page-input");
-		await expect(pageInput).toHaveValue("1");
+	test("Enter moves to the next match across pages; Shift+Enter goes back and wraps", async ({
+		page,
+	}) => {
+		await openViewer(page, { pdf: PLAIN });
+		await search(page, "alpha", "1 of 6");
+		const input = page.locator("#search-input");
+		await input.press("Enter");
+		await expect(page.locator("#search-count")).toHaveText("2 of 6");
+		await input.press("Enter");
+		await expect(page.locator("#search-count")).toHaveText("3 of 6");
+		await waitForPage(page, 2);
+		await input.press("Shift+Enter");
+		await input.press("Shift+Enter");
+		await input.press("Shift+Enter");
+		await expect(page.locator("#search-count")).toHaveText("6 of 6");
+		await waitForPage(page, 3);
+	});
 
-		// Open find panel and focus search input
+	test("the prev and next buttons step through matches", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN });
+		await search(page, "alpha", "1 of 6");
+		await page.locator("#btn-search-next").click();
+		await expect(page.locator("#search-count")).toHaveText("2 of 6");
+		await page.locator("#btn-search-prev").click();
+		await expect(page.locator("#search-count")).toHaveText("1 of 6");
+	});
+
+	test("reports when nothing matches and leaves no highlight", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN });
+		await search(page, "zzzz", "No results");
+		await expect(page.locator("mark.search-mark")).toHaveCount(0);
+	});
+
+	test("highlighting wraps only the matched text and keeps the rest of the line", async ({
+		page,
+	}) => {
+		await openViewer(page, { pdf: PLAIN });
+		await search(page, "marker1", "1 of 1");
+		await expect(page.locator("mark.search-mark")).toHaveText("marker1");
+		await expect(page.locator("#text-layer")).toContainText("Page 1 alpha marker1 alpha");
+	});
+
+	test("clearing the query removes highlights", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN });
+		await search(page, "alpha", "1 of 6");
+		await page.locator("#search-input").fill("");
+		await expect(page.locator("#search-count")).toHaveText("");
+		await expect(page.locator("mark.search-mark")).toHaveCount(0);
+	});
+
+	test("a query typed before the document loads is answered once it has", async ({ page }) => {
+		// Hold the file back so the query is typed while no index exists.
+		await page.route("**/test/fixtures/plain.pdf", async (route) => {
+			await new Promise((resolve) => setTimeout(resolve, 600));
+			await route.continue();
+		});
+		await openViewer(page, { pdf: PLAIN, wait: false });
 		await page.keyboard.press("Control+f");
-		const searchInput = page.locator("#search-input");
-		await expect(searchInput).toBeFocused();
+		await page.locator("#search-input").fill("alpha");
+		await expect(page.locator("#search-count")).toHaveText("No results");
+		await expect(page.locator("#search-count")).toHaveText("1 of 6", { timeout: 15000 });
+	});
 
-		// Press ArrowRight — should NOT flip to page 2
+	test("document text is never interpreted as markup when highlighted", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN });
+		await search(page, "alpha", "1 of 6");
+		const injected = await page
+			.locator("#text-layer")
+			.evaluate((el) => el.querySelectorAll("img,script,iframe").length);
+		expect(injected).toBe(0);
+	});
+
+	test("arrow keys inside the search box do not turn pages", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN });
+		await page.keyboard.press("Control+f");
 		await page.keyboard.press("ArrowRight");
-		await expect(pageInput).toHaveValue("1");
-	});
-
-	test("clearing search input removes highlights", async ({ page }) => {
-		await page.goto("http://localhost:8080/");
-		await waitForPdfRender(page);
-		await page.waitForTimeout(2000);
-
-		// Open find panel
-		await page.keyboard.press("Control+f");
-
-		const searchInput = page.locator("#search-input");
-		await searchInput.fill("lorem");
-
-		const searchCount = page.locator("#search-count");
-		await expect(searchCount).not.toHaveText("", { timeout: 10000 });
-
-		// Wait for search mark to appear
-		const highlights = page.locator("mark.search-mark");
-		await expect(highlights.first()).toBeAttached();
-
-		// Press escape — closes panel and clears highlights
-		await page.keyboard.press("Escape");
-
-		// After clearing, no mark.search-mark elements should remain
-		await expect(highlights).toHaveCount(0);
+		await expect(page.locator("#page-input")).toHaveValue("1");
 	});
 });

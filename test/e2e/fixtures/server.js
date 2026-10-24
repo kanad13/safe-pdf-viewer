@@ -1,64 +1,79 @@
+/**
+ * Static servers for browser tests.
+ *
+ * The page and its resources are served from two origins, like a real webview where the page
+ * origin differs from `webview.cspSource`. PDF.js therefore takes the cross-origin worker path
+ * (a blob wrapper that inherits the page's CSP), the path that ships. The page is rendered by
+ * the extension's own `renderWebviewHtml`, so the policy under test is the policy that ships.
+ */
+require("../../helpers/vscode-stub");
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const { renderWebviewHtml, getNonce } = require("../../../src/extension");
 
 const rootDir = path.join(__dirname, "../../..");
+const PAGE_ORIGIN = "http://localhost:8080";
+const RESOURCE_ORIGIN = "http://127.0.0.1:8081";
+const mimeTypes = {
+	".js": "application/javascript",
+	".mjs": "application/javascript",
+	".css": "text/css",
+	".pdf": "application/pdf",
+	".png": "image/png",
+	".svg": "image/svg+xml",
+};
 
-const server = http.createServer((req, res) => {
-	if (req.url === "/" || req.url === "/index.html") {
-		let html = fs.readFileSync(path.join(rootDir, "src/webview.html"), "utf8");
-		const nonce = "testnonce12345678901234567890123";
-        
-		// Let's use localhost as cspSource
-		const cspSource = "http://localhost:8080";
-        
-		const cspContent = [
-			"default-src 'none'",
-			`script-src 'nonce-${nonce}' 'strict-dynamic'`,
-			`worker-src blob: ${cspSource}`,
-			`connect-src ${cspSource}`,
-			"style-src 'unsafe-inline'",
-			`img-src ${cspSource} data:`,
-			`font-src ${cspSource} data:`,
-		].join("; ");
-        
-		const cspTag = `<meta http-equiv="Content-Security-Policy" content="${cspContent}">`;
-		html = html.replace(
-			"<meta charset=\"UTF-8\">",
-			`<meta charset="UTF-8">\n\t${cspTag}`
-		);
-        
-		html = html.replace(/\{\{NONCE\}\}/g, nonce);
-		html = html.replace(/\{\{PDFJS_URI\}\}/g, "http://localhost:8080/lib/pdfjs/pdf.mjs");
-		html = html.replace(/\{\{WORKER_URI\}\}/g, "http://localhost:8080/lib/pdfjs/pdf.worker.mjs");
-		html = html.replace(/\{\{DEFAULT_ZOOM\}\}/g, "fit-page");
-        
-		const shimScript = `<script nonce="${nonce}" src="/test/e2e/fixtures/vscode-api-shim.js"></script>`;
-		html = html.replace("</head>", `  ${shimScript}\n</head>`);
-        
-		res.writeHead(200, { "Content-Type": "text/html" });
-		res.end(html);
+/**
+ * Serves a file below the repository root with CORS enabled, as the webview resource host does.
+ *
+ * @param {http.ServerResponse} res
+ * @param {string} pathname - Request path
+ */
+function serveFile(res, pathname) {
+	const filePath = path.resolve(rootDir, `.${decodeURIComponent(pathname)}`);
+	if (
+		filePath.startsWith(rootDir + path.sep) &&
+		fs.existsSync(filePath) &&
+		fs.statSync(filePath).isFile()
+	) {
+		res.writeHead(200, {
+			"Content-Type": mimeTypes[path.extname(filePath)] || "text/plain",
+			"Access-Control-Allow-Origin": "*",
+		});
+		res.end(fs.readFileSync(filePath));
 	} else {
-		const filePath = path.join(rootDir, req.url.split("?")[0]);
-		if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-			const ext = path.extname(filePath);
-			const mimeTypes = {
-				".js": "application/javascript",
-				".mjs": "application/javascript",
-				".css": "text/css",
-				".pdf": "application/pdf",
-				".png": "image/png",
-				".svg": "image/svg+xml"
-			};
-			res.writeHead(200, { "Content-Type": mimeTypes[ext] || "text/plain" });
-			res.end(fs.readFileSync(filePath));
-		} else {
-			res.writeHead(404);
-			res.end("Not found");
-		}
+		res.writeHead(404);
+		res.end("Not found");
 	}
+}
+
+const resourceServer = http.createServer((req, res) => {
+	serveFile(res, new URL(req.url, RESOURCE_ORIGIN).pathname);
 });
 
-server.listen(8080, () => {
-	console.log("Test server running at http://localhost:8080/");
+const pageServer = http.createServer((req, res) => {
+	const url = new URL(req.url, PAGE_ORIGIN);
+	if (url.pathname !== "/" && url.pathname !== "/index.html") {
+		serveFile(res, url.pathname);
+		return;
+	}
+	const nonce = getNonce();
+	let html = renderWebviewHtml(fs.readFileSync(path.join(rootDir, "src/webview.html"), "utf8"), {
+		nonce,
+		pdfjsUri: `${RESOURCE_ORIGIN}/lib/pdfjs/pdf.mjs`,
+		workerUri: `${RESOURCE_ORIGIN}/lib/pdfjs/pdf.worker.mjs`,
+		defaultZoom: url.searchParams.get("zoom") || "fit-page",
+		cspSource: RESOURCE_ORIGIN,
+	});
+	// The shim stands in for acquireVsCodeApi and the extension host's init message.
+	const shim = `<script nonce="${nonce}" src="/test/e2e/fixtures/vscode-api-shim.js"></script>`;
+	html = html.replace("</head>", `${shim}\n</head>`);
+	res.writeHead(200, { "Content-Type": "text/html" });
+	res.end(html);
+});
+
+resourceServer.listen(8081);
+pageServer.listen(8080, () => {
+	console.log(`Test server running at ${PAGE_ORIGIN}/ (resources at ${RESOURCE_ORIGIN}/)`);
 });

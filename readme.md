@@ -1,83 +1,90 @@
 # Safe PDF Viewer
 
-A focused, read-only PDF viewer for VS Code.
+A read-only PDF viewer for VS Code that treats every document as untrusted.
 
-**Secure by default: PDF JavaScript disabled, no CDN, strict Content Security Policy.**
-
-## Why this extension?
-
-VS Code has no built-in PDF viewer. Most third-party options are either heavy, feature-bloated, or pull a full Chromium browser into your editor — expanding the attack surface for a file format [historically used as a malware vector](https://www.cve.org/CVERecord/SearchResults?query=pdf).
-
-This VS Code Extension (named "Safe PDF Viewer") takes the secure approach: do one thing, do it simply, and lock it down.
-
-- **Read-only by design** — no editing, no annotation, no form filling
-- **PDF JavaScript disabled** — `isEvalSupported: false` blocks code execution at the renderer level
-- **No CDN, fully offline** — PDF.js is bundled locally; zero outbound network requests
-- **Strict CSP** — nonce-gated scripts, no external origins, no `unsafe-eval`
-
-## Features
-
-- **Zero setup** — just install the extension and open any `.pdf` file immediately; no commands, no configuration required
-- **Keyboard-first navigation** — arrow keys, Page Up/Down, scroll wheel, direct page number entry
-- **Text search** — `Ctrl+F` / `Cmd+F` opens a floating find panel; highlights all matches, jumps between them
-- **Clickable hyperlinks** — internal PDF links navigate within the document; external links open in your system browser
-- **Zoom controls** — fit-page, step zoom (+/−), or set a fixed percentage as the default
-- **Password-protected PDFs** — prompts inline, retries on wrong password, cancels gracefully
-- **Respects your VS Code theme** — all UI elements use VS Code CSS variables; works in light, dark, and high-contrast modes
-
-## Keyboard shortcuts
-
-| Action                | Keys                                  |
-| --------------------- | ------------------------------------- |
-| Previous / next page  | `←` `→` or `PageUp` `PageDown`        |
-| Zoom in / out         | `+` `-`                               |
-| Open find panel       | `Ctrl+F` / `Cmd+F`                    |
-| Next / previous match | `Enter` / `Shift+Enter` in find panel |
-| Close find panel      | `Escape`                              |
-| Jump to page          | Click the page number field and type  |
+PDF files are a long-standing route for malware, and many viewers carry a lot of code to run documents. Safe PDF Viewer renders pages with a bundled copy of Mozilla's PDF.js inside a locked-down webview. It reads files and never changes them, loads nothing from the internet, and never runs a document's scripts.
 
 ## Install
 
-1. Open VS Code (`Ctrl+Shift+X` / `Cmd+Shift+X` → Extensions)
-2. Search `KunalPathak.safe-pdf-viewer`
-3. Click **Install**
+1. Open the Extensions view (`Ctrl+Shift+X` or `Cmd+Shift+X`).
+2. Search for `KunalPathak.safe-pdf-viewer`.
+3. Select **Install**.
 
-Once installed, open any `.pdf` file in the Explorer — it opens directly in the viewer.
+- **Requirements:**
+  - VS Code at the version in `engines.vscode` in [package.json](package.json), or newer.
+  - That version is the newest release at least a year old, so most installations qualify.
 
-## Configuration
+## Use
 
-Open VS Code Settings (`Ctrl+,` / `Cmd+,`) and search **"Safe PDF Viewer"**.
+Open any `.pdf` file from the Explorer. It opens in the viewer without a command or a setting.
 
-| Setting                     | Options                                            | Default    | Description                           |
-| --------------------------- | -------------------------------------------------- | ---------- | ------------------------------------- |
-| `safePdfViewer.defaultZoom` | `fit-page`, `50`, `75`, `100`, `125`, `150`, `200` | `fit-page` | Default zoom level when opening a PDF |
+| Action                 | Keys                                 |
+| ---------------------- | ------------------------------------ |
+| Previous or next page  | `←` `→` `↑` `↓`, `PageUp` `PageDown` |
+| Zoom in or out         | `+` `-`                              |
+| Open the find panel    | `Ctrl+F` / `Cmd+F`                   |
+| Next or previous match | `Enter` / `Shift+Enter` in the panel |
+| Close the find panel   | `Escape`                             |
+| Jump to a page         | Type in the page number field        |
 
-## Security
+Scrolling past the end of a page turns to the next page.
 
-Every layer limits what a malicious PDF can do:
+- **Setting:**
+  - `safePdfViewer.defaultZoom` sets the zoom for newly opened PDFs: `fit-page` (default), `50`, `75`, `100`, `125`, `150` or `200`.
 
-| Layer                                                 | What it blocks                                                   |
-| ----------------------------------------------------- | ---------------------------------------------------------------- |
-| `isEvalSupported: false`                              | Disables PDF JavaScript execution at the PDF.js renderer level   |
-| `default-src 'none'` CSP                              | Blocks all content not explicitly whitelisted                    |
-| Nonce-gated scripts                                   | Only the inline script with a fresh per-render nonce can execute |
-| `localResourceRoots` scoped to `lib/pdfjs/` + PDF dir | Webview cannot read arbitrary files from disk                    |
-| No external origins                                   | PDF.js is bundled locally; zero outbound network                 |
-| `CustomReadonlyEditorProvider`                        | Extension never writes to disk                                   |
-| External links: http/https only                       | `javascript:`, `data:`, `file:` schemes are blocked              |
+## Features
 
-## What this viewer does not do
+- **Reading:**
+  - Page navigation by keyboard, buttons, scroll wheel or page number.
+  - Fit-page zoom and fixed zoom levels from 50% to 200%.
+  - The viewer returns to your page and zoom when you switch back to a tab.
+- **Text:**
+  - Select and copy text.
+  - Find text across all pages, with a match counter and highlights.
+- **Links:**
+  - Internal links jump to their page.
+  - External `http` and `https` links open in your system browser.
+- **Protected files:**
+  - Password-protected PDFs prompt for the password in a masked box.
+  - A wrong password prompts again, three prompts in total.
+- **Workspace Trust:**
+  - Works in Restricted Mode, so PDFs open in workspaces you have not marked as trusted.
+- **Appearance:**
+  - The toolbar and find panel follow your VS Code theme, including high contrast.
 
-| Feature                  | Why                                                            |
-| ------------------------ | -------------------------------------------------------------- |
-| PDF editing / annotation | Out of scope — read-only by design                             |
-| Form filling             | Expands attack surface; PDF forms can carry malicious payloads |
-| PDF JavaScript execution | Disabled at renderer level (`isEvalSupported: false`)          |
-| Printing                 | OS-level complexity out of scope                               |
-| Embedded media playback  | Sandbox violation risk                                         |
+### Limits
 
-## For developers
+- **Images:**
+  - JPEG 2000 and JBIG2 images render as blank areas. Decoding them needs a looser security policy. [docs/decision-log.md](docs/decision-log.md) explains the choice.
+- **Fonts:**
+  - Documents that reference fonts without embedding them use your system fonts.
+- **Scope:**
+  - No editing, annotation, form filling, printing or media playback.
 
-- [docs/architecture.md](docs/architecture.md) — Design decisions and security model
-- [docs/development.md](docs/development.md) — Setup, workflow, and release process
-- [CHANGELOG.md](CHANGELOG.md) — Version history
+## Privacy and security
+
+The extension makes no network requests of its own. Each layer below limits what a hostile PDF can do.
+
+| Layer                          | What it does                                                                                             |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Strict Content Security Policy | A browser rule that blocks everything except the viewer's own script, which carries a fresh random token |
+| No external origins            | PDF.js ships inside the extension; the policy allows no other network origin                             |
+| Scoped file access             | The viewer reads only its own PDF.js files and the folder of the open PDF                                |
+| No document scripts            | The scripting engine of PDF.js is not included, and forms stay disabled                                  |
+| Read-only editor               | The extension never writes to disk                                                                       |
+| Link filtering                 | Only `http` and `https` links open; `javascript:`, `data:` and `file:` are ignored                       |
+| Passwords                      | Used once to open the file; never logged or stored                                                       |
+
+Report vulnerabilities as described in [SECURITY.md](SECURITY.md). The security model is documented in [docs/architecture.md](docs/architecture.md).
+
+## Contribute
+
+- [docs/development.md](docs/development.md): setup, workflow and release procedure.
+- [docs/testing.md](docs/testing.md): how each workflow is tested and which checks stay manual.
+- [docs/dependencies.md](docs/dependencies.md): version policy and the quarterly review.
+- [docs/architecture.md](docs/architecture.md): design and security model.
+- [docs/decision-log.md](docs/decision-log.md): ideas not built, and what would reopen them.
+- [AGENTS.md](AGENTS.md): instructions for coding agents.
+- [CHANGELOG.md](CHANGELOG.md): version history.
+
+The project uses the [MIT license](LICENSE). The bundled PDF.js carries the Apache License 2.0 in [lib/pdfjs/LICENSE](lib/pdfjs/LICENSE).

@@ -2,7 +2,7 @@ const js = require("@eslint/js");
 
 module.exports = [
 	{
-		ignores: ["node_modules/**", "dist/**", "lib/**"]
+		ignores: ["node_modules/**", "dist/**", "lib/**"],
 	},
 	{
 		files: ["**/*.js"],
@@ -20,17 +20,31 @@ module.exports = [
 				require: "readonly",
 				setTimeout: "readonly",
 				clearTimeout: "readonly",
-				URL: "readonly"
-			}
+				URL: "readonly",
+			},
 		},
 		rules: {
 			...js.configs.recommended.rules,
-			"indent": ["error", "tab"],
+			indent: ["error", "tab"],
 			"linebreak-style": ["error", "unix"],
-			"quotes": ["error", "double"],
-			"semi": ["error", "always"],
+			quotes: ["error", "double", { avoidEscape: true }],
+			semi: ["error", "always"],
 			"no-unused-vars": ["warn"],
-			"no-console": "off"
-		}
-	}
+			"no-console": "off",
+		},
+	},
+	{
+		// Browser tests pass functions to page.evaluate(), so browser globals appear in them.
+		files: ["test/e2e/**/*.js"],
+		languageOptions: {
+			globals: {
+				window: "readonly",
+				document: "readonly",
+				HTMLCanvasElement: "readonly",
+				Event: "readonly",
+				URLSearchParams: "readonly",
+				getComputedStyle: "readonly",
+			},
+		},
+	},
 ];

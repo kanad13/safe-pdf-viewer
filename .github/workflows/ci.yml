@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The lowest supported Node (engines.node), because glob handling and runner output differ between versions.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - name: Unit tests, lint and format check
+        run: npm test
+      - name: Production dependency audit
+        run: npm audit --omit=dev
+      - name: Browser tests
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+        env:
+          CI: "true"
+      - name: Build the package
+        run: npm run package

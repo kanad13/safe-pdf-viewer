@@ -5,9 +5,8 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<!--
-		CSP is injected by extension.js immediately after the charset meta tag.
-		No template tokens are used for CSP — extension.js inserts the full
-		<meta http-equiv="Content-Security-Policy" ...> element at runtime.
+		The Content Security Policy meta element is inserted by extension.js directly after the
+		charset line. The template carries no CSP token.
 	-->
 	<title>PDF Viewer</title>
 	<style>
@@ -321,7 +320,9 @@
 	<script type="module" nonce="{{NONCE}}">
 		// ── PDF.js setup ───────────────────────────────────────────────
 		// Loaded from local bundle — no CDN, works fully offline.
-		// isEvalSupported: false disables PDF JavaScript execution.
+		// PDF.js never runs document scripts here (no scripting sandbox is bundled and the
+		// annotation layer is rendered with enableScripting: false). isEvalSupported: false keeps
+		// PDF functions out of eval for PDF.js releases that honour it; the CSP forbids eval anyway.
 		import * as pdfjsLib from "{{PDFJS_URI}}";
 
 		pdfjsLib.GlobalWorkerOptions.workerSrc = "{{WORKER_URI}}";
@@ -331,6 +332,7 @@
 		let currentPage = 1;
 		let currentZoom = "{{DEFAULT_ZOOM}}";
 		let renderTask = null;   // Track in-flight renders to cancel on nav
+		let renderGeneration = 0; // Identifies the newest render request; older ones stop early
 		let activeTextLayer = null; // Track instances of PDF.js TextLayer
 		let activeAnnotationLayer = null; // Track annotation layer instance
 
@@ -375,6 +377,12 @@
 		async function renderPage(pageNum) {
 			if (!pdfDoc) return;
 
+			// A newer request supersedes this one at every await below. currentPage moves at
+			// request time so rapid key presses continue from the latest requested page instead
+			// of repeating the page that is still rendering.
+			const generation = ++renderGeneration;
+			currentPage = pageNum;
+
 			// Cancel any in-flight render
 			if (renderTask) {
 				renderTask.cancel();
@@ -393,6 +401,7 @@
 			textLayerDiv.innerHTML = "";
 
 			const page = await pdfDoc.getPage(pageNum);
+			if (generation !== renderGeneration) return;
 			const scale = await computeScale(page);
 			const pv = page.getViewport({ scale });
 
@@ -424,6 +433,7 @@
 			});
 			try {
 				await renderTask.promise;
+				if (generation !== renderGeneration) return;
 
 				// Render Text Layer
 				if (page.streamTextContent) {
@@ -433,6 +443,7 @@
 						viewport: pv,
 					});
 					await activeTextLayer.render();
+					if (generation !== renderGeneration) return;
 				}
 
 				// Render Annotation Layer (link overlays)
@@ -444,6 +455,7 @@
 				annotationLayerDiv.style.setProperty("--total-scale-factor", scale);
 				if (pdfjsLib.AnnotationLayer) {
 					const annotations = await page.getAnnotations({ intent: "display" });
+					if (generation !== renderGeneration) return;
 					if (annotations.length > 0) {
 						activeAnnotationLayer = new pdfjsLib.AnnotationLayer({
 							div: annotationLayerDiv,
@@ -472,7 +484,6 @@
 				return;
 			}
 
-			currentPage = pageNum;
 			saveState();
 			updateToolbar();
 		}
@@ -503,6 +514,7 @@
 			if (!pdfDoc) return;
 			const clamped = Math.max(1, Math.min(pdfDoc.numPages, n));
 			if (clamped !== currentPage) renderPage(clamped);
+			else updateToolbar(); // Restore the field when the typed number was out of range
 		}
 
 		function goNext() { goTo(currentPage + 1); }
@@ -882,12 +894,13 @@
 			const loadingTask = pdfjsLib.getDocument({
 				url,
 				password: password ?? undefined,
-				isEvalSupported: false,   // Disable PDF JavaScript
+				isEvalSupported: false,   // Never compile document content with eval
 				disableFontFace: false,
 			});
 			try {
 				pdfDoc = await loadingTask.promise;
 			} catch (err) {
+				loadingTask.destroy(); // Release the worker of the failed attempt
 				if (err && err.name === "PasswordException") {
 					if (attempt > 3) {
 						showStatus("Too many incorrect password attempts.");
@@ -911,7 +924,7 @@
 			pageContainer.style.display = "inline-block";
 			pageInput.max = pdfDoc.numPages;
 			const saved = vscode.getState();
-			if (saved && saved.zoom) {
+			if (saved && (saved.zoom === "fit-page" || ZOOM_STEPS.includes(saved.zoom))) {
 				currentZoom = saved.zoom;
 			}
 			const startPage = (saved && saved.page)
@@ -919,6 +932,8 @@
 				: 1;
 			await renderPage(startPage);
 			await buildSearchIndex();
+			// A query typed while the index was still building found nothing; run it now.
+			if (searchInput.value.trim()) runSearch(searchInput.value.trim());
 		}
 
 		// Resize listener to re-render if fitting to width/page
@@ -956,7 +971,7 @@
 				activeAnnotationLayer = null;
 			}
 			if (pdfDoc) {
-				pdfDoc.destroy();
+				pdfDoc.loadingTask.destroy();
 				pdfDoc = null;
 			}
 		});
