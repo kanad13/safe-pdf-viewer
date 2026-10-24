@@ -1,3 +1,8 @@
+/**
+ * Tests for the webview page the extension produces: CSP invariants, single-pass template
+ * substitution, escaping of values placed in the inline script, and static security rules
+ * for the template (no dynamic innerHTML, no remote resources, eval disabled).
+ */
 const { describe, it, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

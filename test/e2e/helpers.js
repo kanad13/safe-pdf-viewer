@@ -1,3 +1,7 @@
+/**
+ * Shared helpers for the browser suite: opening the viewer on a fixture, counting renders,
+ * recording CSP violations and console errors, and reading posted messages.
+ */
 const { expect } = require("@playwright/test");
 
 const BASE = "http://localhost:8080/";

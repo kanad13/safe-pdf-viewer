@@ -1,3 +1,8 @@
+/**
+ * Unit tests for the extension host: nonce, zoom setting, link filtering, the webview
+ * message handler (including the password round trip), editor setup and activation.
+ * They call the exported functions with the shared fake `vscode` module.
+ */
 const { describe, it, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const stub = require("./helpers/vscode-stub");

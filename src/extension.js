@@ -1,5 +1,18 @@
 // PDF.js bundled version: 6.4.299 (lib/pdfjs/pdf.mjs + pdf.worker.mjs)
 
+/**
+ * Extension host for Safe PDF Viewer: registers the read-only PDF editor and builds its webview.
+ *
+ * Why it exists: VS Code needs a host-side provider to open `.pdf` files, and the webview that
+ * renders them is untrusted because it parses attacker-controlled documents. Everything that must
+ * be decided outside the webview lives here: the Content Security Policy, which folders the webview
+ * may read, which messages it may send, and which links may leave the editor.
+ *
+ * Invariants: the CSP denies by default and gates scripts by nonce; `localResourceRoots` lists only
+ * `lib/pdfjs/` and the PDF's directory; the provider never writes; messages from the webview are
+ * type-checked before use; only http(s) links reach `openExternal`. See docs/architecture.md.
+ */
+
 const vscode = require("vscode");
 const path = require("path");
 const crypto = require("crypto");

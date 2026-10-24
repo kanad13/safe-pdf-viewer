@@ -1,311 +1,122 @@
-# Development Guide
+# Development guide
 
-A comprehensive guide to develop, test, and release the Safe PDF Viewer extension.
+This guide covers setup, the daily workflow, manual testing and the release procedure.
 
-## 1. Prerequisites & Setup
+## Prerequisites
 
-### Install Global Tools
+- **Node:**
+  - Use the version in `engines.node` in `package.json` or newer.
+- **Git:**
+  - Work on a feature branch. Never commit to `main`.
+- **Release tools (maintainer only):**
+  - A Marketplace publisher login for `vsce`.
+  - The GitHub CLI (`gh`) for hosted releases.
 
-Required for development and publishing:
-
-```bash
-# VS Code CLI for publishing to marketplace
-npm install -g @vscode/vsce
-
-# GitHub CLI for creating releases
-brew install gh
-```
-
-### Authenticate with Services
-
-**Marketplace Authentication (vsce):**
-
-1. Create a Personal Access Token at `https://dev.azure.com/<org>/_usersSettings/tokens`
-2. Required scope: `Marketplace > Manage`
-3. Authenticate:
-   ```bash
-   vsce login KunalPathak
-   ```
-4. Verify: `vsce ls-publishers`
-
-**GitHub Authentication (gh):**
+## Setup
 
 ```bash
-gh auth login
-gh auth status  # Verify
-```
-
-> **Note:** If your PAT expires, run `vsce login KunalPathak` again with a fresh token.
-
-### Local Environment Setup
-
-```bash
-# Clone the repository
 git clone https://github.com/kanad13/safe-pdf-viewer.git
 cd safe-pdf-viewer
-
-# Install dependencies from lock file (reproducible builds)
 npm ci
-
-# Verify setup
-npm run lint
-npm run package
+npm test
+npx playwright install chromium
+npm run test:e2e
 ```
 
-> **Why `npm ci` instead of `npm install`?** Use `npm ci` for setup and reproducibility — it installs exact versions from `package-lock.json`. Only use `npm install` when intentionally adding/upgrading dependencies; then commit the updated lock file.
-
-**Clean reinstall (if issues occur):**
-
-```bash
-rm -rf node_modules
-npm ci
-```
-
-### One-Time: Bundle PDF.js
-
-PDF.js ships as a static local asset in `lib/pdfjs/`. This is a one-time setup step and the files are committed to the repository.
-
-```bash
-# Download the latest prebuilt PDF.js dist
-# From: https://github.com/mozilla/pdf.js/releases
-# Download: pdfjs-X.Y.Z-dist.zip (the "dist" variant, not "legacy")
-
-# Extract and copy the two required files
-cp pdfjs-dist/build/pdf.mjs      lib/pdfjs/pdf.mjs
-cp pdfjs-dist/build/pdf.worker.mjs lib/pdfjs/pdf.worker.mjs
-
-# Verify
-ls -lh lib/pdfjs/
-```
-
-These two files are all that is needed. Do not copy the entire dist tree.
-
-**Updating PDF.js:** Repeat the above steps with a newer release, then commit the updated files with a clear message: `chore: update PDF.js to vX.Y.Z`.
-
----
-
-## 2. Feature Development Workflow
-
-### Step 1: Create a Feature Branch
-
-Always develop on feature branches. Never commit directly to `main`.
-
-```bash
-git checkout -b feat/your-feature-name
-```
-
-**Branch naming conventions:**
-
-- `feat/` — New features
-- `fix/` — Bug fixes
-- `docs/` — Documentation updates
-- `refactor/` — Code refactoring
-
-### Step 2: Implement Changes
-
-1. **Edit Code:** Modify `src/extension.js` and/or `src/webview.html`
-2. **Code Style Requirements:**
-   - Tab indentation (enforced by ESLint)
-   - Use `const`/`let` only (no `var`)
-   - Keep functions simple with clear JSDoc comments
-   - No console logs in production code (unless explicitly for debugging)
-
-3. **JSDoc Standards:** All exported/public functions must document purpose, parameters, return values, and side effects.
-
-4. **Dependencies:** Avoid adding new npm dependencies. The extension ships source directly with no bundler:
-   - PDF.js ships as a committed static asset in `lib/pdfjs/` — it is not an npm dep
-   - If a new library is truly needed, it must also ship as a committed static asset
-   - No CDN loading of any dependency
-
-5. **Security checklist for any webview change:**
-   - Does the CSP still have `default-src 'none'`?
-   - Is the nonce still applied to every `<script>` tag?
-   - Is `isEvalSupported: false` still set on the PDF.js worker?
-   - Are `localResourceRoots` still correctly scoped (pdfjs dir + pdf file dir only)?
-
-### Step 3: Test Locally
-
-```bash
-# Launch the extension in a dev host
-# In VS Code, press F5
-```
-
-Test in the dev host:
-
-- Open `examples/test.pdf` — it should open directly in the viewer (no command needed)
-- Verify pages render correctly
-- Test navigation: arrow keys, PageUp/PageDown, scroll wheel, clicking `‹` `›` arrows
-- Verify page counter updates ("Page X / Y")
-- Test zoom: Fit Page button, + (zoom in), − (zoom out)
-- Test jump-to-page input
-- Test text selection and copy (`Ctrl+C`)
-- Test in-document search (`Ctrl+F`):
-  - Bar opens, search input receives focus
-  - Typing highlights matching spans with a yellow/orange indicator
-  - Enter / ↓ button cycles forward; Shift+Enter / ↑ button cycles backward
-  - Match counter shows "X of Y" or "No results"
-  - Escape clears search and removes highlights. The search input is always visible in the toolbar (no open/close toggle)
-  - Arrow-key page navigation does **not** fire while search input is focused
-- Test dark theme: switch VS Code to a dark theme, verify viewer chrome updates
-- Test zoom setting: change `safePdfViewer.defaultZoom` in Settings (e.g. `"100"` or `"fit-page"`), close and reopen PDF
-- Test password-protected PDFs (requires an encrypted PDF):
-  - Open a password-protected PDF → verify VS Code input prompt appears
-  - Enter the wrong password → verify the prompt re-appears (up to 3 attempts)
-  - Press Escape on the prompt → verify the viewer shows "Password required…" status
-  - Enter the correct password → verify the PDF renders normally
-- Check Developer Tools for errors (`Help > Toggle Developer Tools`)
-
-### Step 4: Lint & Build
-
-```bash
-# Check for code quality issues
-npm run lint
-
-# Build package to verify no errors
-npm run package
-```
-
-### Step 5: Commit & Merge
-
-```bash
-# Stage your changes
-git add src/extension.js src/webview.html
-
-# Commit with descriptive message
-git commit -m "feat: add descriptive title
-
-- Bullet point details
-- More details"
-```
-
-Keep commits atomic and logical.
-
-**Merge to main:**
-
-```bash
-git checkout main
-git pull origin main
-git merge --no-ff feat/your-feature-name
-git push origin main
-```
-
----
-
-## 3. Release Management
-
-**Only release from `main` branch after all features are merged and tested.**
-
-### Pre-Release Verification
-
-Before starting, ensure:
-
-- All features merged to `main`
-- GitHub Actions build passes
-- `git status` shows no uncommitted changes
-- `vsce login` authenticated: run `vsce ls-publishers`
-- `gh auth status` authenticated
-
-### Step 1: Update Version Numbers
-
-Update BOTH files:
-
-**package.json:**
-
-```json
-"version": "X.Y.Z"
-```
-
-**package-lock.json:**
-
-```
-"version": "X.Y.Z"
-```
-
-Verify both updated:
-
-```bash
-grep '"version": "X.Y.Z"' package.json package-lock.json | wc -l
-# Should output: 2
-```
-
-### Step 2: Update CHANGELOG.md
-
-Add entry at the **very top** (after header):
-
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added
-
-- New feature description
-
-### Changed
-
-- Enhancement description
-
-### Fixed
-
-- Bug fix description
-```
-
-**Important:**
-
-- Use actual date (YYYY-MM-DD)
-- Only include **user-facing changes**
-- Exclude: dependency updates, internal refactoring, test improvements, build changes
-- Only include sections with content
-
-### Step 3: Clean Install & Verify
-
-```bash
-rm -rf node_modules
-npm ci
-npm run lint
-echo $?  # Should output: 0
-```
-
-### Step 4: Build & Publish
-
-```bash
-# Build the .vsix
-npm run package
-
-# Publish to marketplace
-npm run publish
-
-# Create GitHub release
-gh release create vX.Y.Z --title "vX.Y.Z" --notes-file <(sed -n '/## \[X.Y.Z\]/,/## \[/p' CHANGELOG.md | head -n -1)
-```
-
-### Step 5: Verify Publication
-
-- Check the [VS Code Marketplace listing](https://marketplace.visualstudio.com/items?itemName=KunalPathak.safe-pdf-viewer)
-- Install the published version in a clean VS Code instance: `code --install-extension KunalPathak.safe-pdf-viewer@X.Y.Z`
-- Confirm version number in Extensions panel
-
----
-
-## 4. Project Structure Reference
+- **Why `npm ci`:**
+  - It installs the exact versions in `package-lock.json`. Use `npm install` only to change dependencies, and commit the lockfile with the change.
+
+## Commands
+
+| Command            | Purpose                                                        |
+| ------------------ | -------------------------------------------------------------- |
+| `npm test`         | Unit tests, ESLint, Prettier check. Must pass with no warnings |
+| `npm run test:e2e` | Browser tests against the real webview page and bundled PDF.js |
+| `npm run format`   | Rewrite files with Prettier                                    |
+| `npm run package`  | Build `safe-pdf-viewer-<version>.vsix` in the repository root  |
+
+## Daily workflow
+
+1. **Branch:**
+   - `git checkout -b feat/<name>` (or `fix/`, `docs/`, `chore/`).
+2. **Change:**
+   - Edit `src/extension.js` and `src/webview.html`.
+   - Follow the style and security rules in [AGENTS.md](../AGENTS.md).
+   - Add or change tests with the code. [testing.md](testing.md) lists where each workflow is covered.
+3. **Check:**
+   - Run `npm test` and `npm run test:e2e`.
+   - For a change to rendering or dependencies, also run the suite on the floor's Chromium (see [testing.md](testing.md)).
+4. **Commit:**
+   - Use a conventional subject and the Problem, Solution, Decisions, Implementation, Notes body.
+
+### Security checklist for webview changes
+
+- The CSP still starts with `default-src 'none'`, and every script tag carries the nonce.
+- `localResourceRoots` still lists `lib/pdfjs/` and the PDF's directory only.
+- Document text never reaches `innerHTML`.
+- Link targets pass `toExternalUrl()` before `openExternal`.
+- The unit tests for these points still fail when you break each point on purpose.
+
+## Manual testing with a local package
+
+1. Run `npm run package`.
+2. In VS Code, open the Extensions view, choose the `···` menu, then **Install from VSIX…** and select the file.
+3. Choose **Reload Window** when prompted.
+4. Work through the manual checks in [testing.md](testing.md), starting with `examples/test.pdf`.
+5. Uninstall the extension before the next iteration.
+
+## Updating PDF.js and other dependencies
+
+Follow [dependencies.md](dependencies.md). It defines which versions qualify, how to choose the PDF.js build and how to run the quarterly review.
+
+## Release procedure
+
+Release only from `main`, only when the maintainer says so, and only after the maintainer confirms the built package works.
+
+1. **Version:**
+   - Choose the bump by semantic versioning from the user-visible changes.
+   - Update `package.json`, `package-lock.json` and `CHANGELOG.md` together.
+   - List only user-facing changes in the changelog.
+2. **Store checks:**
+   - The icon dimensions are within the Marketplace limits.
+   - `npx vsce ls` lists no development files. The package test enforces this.
+   - `engines.vscode` and the `@types/vscode` pin agree. The package test enforces this.
+3. **Clean verification:**
+   ```bash
+   rm -rf node_modules
+   npm ci
+   npm test
+   npm run test:e2e
+   npm audit --omit=dev
+   npm run package
+   ```
+4. **Merge:**
+   - Merge the branch into `main` with a merge commit.
+   - Run `npm test` on the merged result and confirm CI passes on `main`.
+5. **Tag and publish:**
+   - Tag the exact commit that is published.
+   - Push `main` and the tag, then run `npm run publish` with the existing `vsce` login.
+   - Create the hosted release with `gh release create vX.Y.Z` and attach the `.vsix`.
+6. **Verify:**
+   - The Marketplace listing shows the new version (allow time for propagation).
+   - The hosted release exists with its asset.
+   - CI is green.
+
+## Project structure
 
 ```
 safe-pdf-viewer/
 ├── src/
-│   ├── extension.js       # All extension host logic
-│   └── webview.html       # Webview shell (PDF.js canvas + nav UI)
-├── lib/
-│   └── pdfjs/
-│       ├── pdf.mjs        # PDF.js main module (committed static asset)
-│       └── pdf.worker.mjs # PDF.js web worker (committed static asset)
+│   ├── extension.js        # Extension host
+│   └── webview.html        # Webview page: toolbar, find panel, styles, script
+├── lib/pdfjs/              # Committed PDF.js bundle and its license
 ├── test/
-│   └── extension.test.js  # Unit tests (node:test runner)
-├── examples/
-│   └── test.pdf           # Test PDF with mixed content for manual testing
-├── docs/
-│   ├── architecture.md
-│   └── development.md     # This file
-├── assets/
-├── package.json
-├── eslint.config.js
-├── jsconfig.json
-└── CHANGELOG.md
+│   ├── *.test.js           # Unit and static tests (node:test)
+│   ├── helpers/            # Shared fake of the vscode module
+│   ├── fixtures/           # Small PDFs and their generator
+│   └── e2e/                # Playwright specs, server and shim
+├── examples/test.pdf       # Long real-world document for manual and whole-document checks
+├── docs/                   # Guides and the decision log
+├── .github/workflows/      # CI
+└── AGENTS.md               # Agent instructions
 ```

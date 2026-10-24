@@ -1,3 +1,7 @@
+/**
+ * Tests for what ships: manifest floor/pin pairing, the bundled PDF.js build, and the file
+ * list `vsce ls` would publish.
+ */
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");

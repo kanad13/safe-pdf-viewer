@@ -1,175 +1,180 @@
 # Architecture
 
-Design decisions and architectural patterns for the Safe PDF Viewer extension.
+This guide explains how the extension is built and why. Start with the overview, read the flows for the mechanics, and use the security section when you change anything that touches the webview.
 
 ## Overview
 
-The extension opens `.pdf` files in a focused, read-only VS Code webview. Pages are rendered via a **locally bundled PDF.js** (Mozilla) onto HTML5 canvas elements. The entire extension host logic lives in a single file (`src/extension.js`) with no runtime npm dependencies.
+The extension opens `.pdf` files in a read-only VS Code webview. A locally bundled PDF.js renders each page onto a canvas, and a transparent text layer on top supports selection, search and links.
 
-## High-Level Flow
+- **Extension host (`src/extension.js`):**
+  - Registers the custom editor.
+  - Builds the webview page from `src/webview.html`.
+  - Answers messages from the webview: ready, password prompts, external links.
+- **Webview page (`src/webview.html`):**
+  - Holds the toolbar, find panel, styles and the module script.
+  - Loads PDF.js, renders pages, handles navigation, zoom and search.
+- **PDF.js bundle (`lib/pdfjs/`):**
+  - Committed files, loaded from the extension's own resource origin.
+  - No bundler, no CDN, no production npm dependency.
 
-```
-User opens .pdf file in VS Code
-         ↓
-VS Code calls resolveCustomEditor(document, webviewPanel, token)
-         ↓
-getWebviewContent(panel, extensionUri, nonce) → HTML
-         ↓
-Webview loads PDF.js from local bundle (no CDN)
-         ↓
-PDF.js fetches PDF via webview-safe URI, renders page 1 onto <canvas>
-         ↓
-User navigates with arrow keys / scroll / click
-         ↓
-New panels read zoom default from VS Code config at open time
-```
+Two terms recur below. A Content Security Policy (CSP) is a browser rule that lists what a page may load or run. A nonce is a random one-time token that marks the page's own script as allowed.
 
-One active webview panel per file (VS Code manages this via the custom editor API). Panel state lives in a closure inside `resolveCustomEditor`.
+The four parts relate in one flow. VS Code asks the host for an editor, the host renders the page template with a fresh nonce, the page loads PDF.js and asks the host for the document address, and PDF.js reads the file through the webview resource origin.
 
-## Key Functions
-
-| Function                                                                    | Purpose                                                                                                                         |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `getNonce()`                                                                | Generates a cryptographically random 32-character hex token for CSP (uses `crypto.randomBytes`)                                 |
-| `getDefaultZoom()`                                                          | Reads `safePdfViewer.defaultZoom` from VS Code config; falls back to `"fit-page"` for unrecognised values                       |
-| `getWebviewContent(panel, extensionUri, nonce)`                             | Reads `src/webview.html`, replaces `{{NONCE}}`, `{{PDFJS_URI}}`, `{{WORKER_URI}}`, `{{DEFAULT_ZOOM}}` tokens, returns full HTML |
-| `activate(context)`                                                         | Registers `CustomReadonlyEditorProvider`; new panels read zoom default from VS Code config at open time                         |
-| `SafePdfEditorProvider.resolveCustomEditor(document, webviewPanel, _token)` | Sets up webview options, CSP, and posts initial config; handles incoming messages                                               |
-
-## VS Code API: CustomReadonlyEditorProvider
-
-Unlike a command-based panel, `CustomReadonlyEditorProvider` is triggered by VS Code's file-opening mechanism. When the user opens a `.pdf` file, VS Code routes it to this provider automatically.
+## Open-a-PDF flow
 
 ```
-register → contributes.customEditors in package.json
-         → viewType: "safePdfViewer.pdfEditor"
-         → filenamePattern: "*.pdf"
+User opens a .pdf file
+        ↓
+VS Code calls resolveCustomEditor(document, webviewPanel)
+        ↓
+Host sets localResourceRoots, renders webview.html with a fresh nonce and the CSP
+        ↓
+Webview module loads PDF.js and posts { type: "ready" }
+        ↓
+Host replies { type: "init", pdfUrl } with the webview URI of the file
+        ↓
+PDF.js loads the document, the page renders, the text layer and links follow
+        ↓
+Search index builds in the background
 ```
 
-This is more idiomatic than a command for file-type viewers. The tradeoff vs a command-based panel approach:
+- **One panel per file:**
+  - VS Code creates one webview per open document through the custom editor API.
+- **Zoom default:**
+  - A new panel reads `safePdfViewer.defaultZoom` when it opens. Open panels keep their zoom.
 
-- **Pros:** Integrates with file explorer, tab system, and editor groups natively
-- **Cons:** Slightly more VS Code API surface to understand
+## Extension host
 
-## Security Model
+- **Provider:**
+  - `SafePdfEditorProvider` implements the custom editor provider. The VS Code API requires a class here.
+  - `openCustomDocument` returns the URI. The editor is read-only, so no document model is needed.
+- **Template rendering:**
+  - `renderWebviewHtml(template, values)` fills the page in a single pass with function replacers.
+  - The same function builds the pages in the browser tests, so tests and product share one policy.
+- **Messages:**
+  - `createMessageHandler(webview, pdfFileUri)` returns the handler. It type-checks every field because the webview renders attacker-controlled documents.
 
-PDF files are an attack surface. Defense layers:
+## Webview page
 
-1. **CSP with Nonces:** Fresh nonce per `resolveCustomEditor` call. Only scripts bearing the nonce execute. No external script origins allowed.
-2. **No CDN:** PDF.js ships inside the extension (`lib/pdfjs/`). Zero outbound network. Works offline.
-3. **`worker-src blob:`:** PDF.js spawns a web worker using `URL.createObjectURL(blob)`. This is the only non-`none` worker origin, and it is already sandboxed within the webview.
-4. **`localResourceRoots` allowlist:** The webview can only load resources from two directories — the PDF.js lib folder and the folder containing the open PDF. It cannot access any other path on disk.
-5. **`isEvalSupported: false`:** Passed to `pdfjsLib.getDocument()` — disables PDF JavaScript execution at the renderer level.
-6. **Read-Only Provider:** `CustomReadonlyEditorProvider` signals to VS Code (and downstream tools) that this editor never writes to disk.
-7. **No User HTML Passthrough:** PDF bytes are decoded and painted onto canvas by PDF.js. The content of the PDF file is never interpreted as HTML or injected into the DOM as a string.
-8. **Password never persisted:** For password-protected PDFs the entered password is used only for `getDocument()`; it is never logged (`console.*`), stored in `vscode.setState`, or held in any variable beyond the retry call. Re-prompting stops after 3 failed attempts.
+- **State:**
+  - Page state lives in the page script: the loaded document, current page, zoom, render task, text layer, search index and matches.
+  - `vscode.setState({ page, zoom })` lets VS Code restore the page and zoom when a tab comes back. VS Code scopes that state to the webview of one editor.
+- **Rendering:**
+  - Each request for a page takes a generation number. Work that finishes after a newer request stops silently.
+  - `currentPage` moves when a page is requested, so rapid key presses continue from the latest target.
+- **Timers:**
+  - A 150 ms debounce re-renders after a resize, only in fit-page mode.
+  - A 400 ms cooldown limits wheel-driven page turns at the scroll boundary.
 
-### CSP Header
+## Messages
+
+Messages follow a `{ type, ...payload }` convention.
+
+| Direction           | Type                  | Payload                        | Purpose                                                    |
+| ------------------- | --------------------- | ------------------------------ | ---------------------------------------------------------- |
+| Webview → Extension | `"ready"`             | none                           | The page is listening; the host replies with `init`        |
+| Extension → Webview | `"init"`              | `{ pdfUrl }`                   | Starts the document load                                   |
+| Webview → Extension | `"passwordRequired"`  | `{ isWrongPassword: boolean }` | PDF.js raised a password exception; the host prompts       |
+| Extension → Webview | `"password"`          | `{ value: string }`            | The typed password; the webview retries                    |
+| Extension → Webview | `"passwordCancelled"` | none                           | The prompt was dismissed; the webview shows a message      |
+| Webview → Extension | `"openLink"`          | `{ url: string }`              | A link annotation was clicked; the host opens http(s) URLs |
+
+### Password flow
+
+```
+Webview: getDocument(url) → PasswordException
+Webview → Host: { type: "passwordRequired", isWrongPassword: false }
+Host: showInputBox({ password: true })
+Host → Webview: { type: "password", value } or { type: "passwordCancelled" }
+Webview: getDocument(url, password)
+  └─ success → render
+  └─ PasswordException → prompt again (three prompts in total)
+  └─ cancelled or exhausted → status message
+```
+
+- **Handling:**
+  - The host never logs or stores the password.
+  - The webview passes it to `getDocument()` and keeps it only in the arguments of the retry call.
+  - Each failed attempt destroys its loading task.
+
+## Security model
+
+PDF files are an attack surface. Several independent layers limit what a hostile document can do.
+
+| Layer                          | What it limits                                                                                            |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| CSP with a per-editor nonce    | Only the page's own module script runs; no eval; no network origin except the extension's resource origin |
+| Bundled PDF.js, no CDN         | The extension makes no outbound requests of its own                                                       |
+| `localResourceRoots`           | The webview reads only `lib/pdfjs/` and the folder of the open PDF                                        |
+| No document scripting          | No scripting sandbox ships, and the annotation layer renders with `enableScripting: false`                |
+| `isEvalSupported: false`       | Keeps PDF functions out of eval in PDF.js releases that honour the option; the bundled release ignores it |
+| `CustomReadonlyEditorProvider` | The extension never writes to disk                                                                        |
+| Link filtering                 | The host opens only http(s) addresses, and it opens the address it validated                              |
+| Text kept out of markup        | Search highlights and status text use text nodes; no dynamic `innerHTML`                                  |
+| Password handling              | Never logged, never persisted                                                                             |
+
+### Content Security Policy
+
+`buildCsp()` produces this policy, where `CSP_SOURCE` is `webview.cspSource`:
 
 ```
 default-src 'none';
 script-src 'nonce-NONCE' 'strict-dynamic';
-worker-src blob: WEBVIEW_CSP_SOURCE;
-connect-src WEBVIEW_CSP_SOURCE;
+worker-src blob: CSP_SOURCE;
+connect-src CSP_SOURCE;
 style-src 'unsafe-inline';
 img-src data:;
 ```
 
-`WEBVIEW_CSP_SOURCE` is `panel.webview.cspSource` — the VS Code webview's own resource scheme (e.g. `vscode-resource:`). `connect-src` allows PDF.js to fetch the PDF file via the webview URI. `img-src data:` covers PDF-embedded images rendered via canvas — never an external origin.
+- **Scripts:**
+  - The nonce gates the page's script. `'strict-dynamic'` lets that script import PDF.js modules.
+- **Workers:**
+  - The worker file lives on a different origin from the page, so PDF.js starts it through a blob that inherits this policy.
+- **Fetches:**
+  - `connect-src` lets PDF.js read the document and the worker file from the resource origin.
+- **Styles:**
+  - PDF.js positions text and annotation elements with inline styles, so `'unsafe-inline'` is required for styles only.
+- **Images:**
+  - `img-src data:` is kept as a precaution. The test documents render without it; see the decision log.
 
-## State Management
+### Limits
 
-State is closure-scoped inside `resolveCustomEditor`, keeping it per-panel:
+- **`'strict-dynamic'`:**
+  - Script elements that a trusted script creates are allowed. A bug that lets an attacker run code in the page could therefore add scripts. The nonce limits what the page contains, not what running code can do.
+- **Undecodable images:**
+  - JPEG 2000 and JBIG2 images render blank. Decoding them would need WebAssembly and a looser CSP, which is an open maintainer decision.
 
-- `pdfDoc` — loaded PDF.js document object (`null` until init message)
-- `currentPage` — 1-based index of the visible page
-- `currentZoom` — active zoom string (`"fit-page"` or numeric percent, e.g. `"100"`)
-- `renderTask` — in-flight PDF.js render task; cancelled on page navigation
-- `activeTextLayer` — in-flight `TextLayer` instance; cancelled on page navigation
-- `searchIndex` — `[{ page, fullText }]` array built after PDF loads
-- `searchMatches` — flat `[{ page, occurrenceOnPage }]` list for the current query
-- `searchMatchIdx` — current position within `searchMatches`
-- `scrollCooldown` — boolean throttle for scroll-wheel page turning
-- `resizeTimeout` — debounce handle for the window `resize` event
+## PDF.js integration
 
-The webview-side state (canvas content, scroll position) lives entirely in the webview. The extension host does not try to mirror it.
+- **Build:**
+  - `lib/pdfjs/` holds the legacy build of PDF.js, because the modern build needs newer browser features than the Chromium of the support floor.
+  - [dependencies.md](dependencies.md) explains the choice and the update procedure.
+- **Exports used:**
+  - `getDocument`, `GlobalWorkerOptions`, `TextLayer`, `AnnotationLayer`.
+  - `PDFFindController` and `EventBus` come from the viewer package and are not bundled.
+- **Worker:**
+  - `GlobalWorkerOptions.workerSrc` points at the webview URI of `pdf.worker.mjs`.
 
-### Extension ↔ Webview Communication
+## Find in document
 
-Messages follow a `{ type, ...payload }` convention:
+Search uses two stages, because the viewer classes that normally provide it are not bundled.
 
-| Direction           | Message type          | Payload                        | Purpose                                                 |
-| ------------------- | --------------------- | ------------------------------ | ------------------------------------------------------- |
-| Extension → Webview | `"init"`              | `{ pdfUrl }`                   | Sent once after webview is ready; triggers PDF load     |
-| Webview → Extension | `"ready"`             | —                              | Signals DOMContentLoaded, triggers init                 |
-| Webview → Extension | `"passwordRequired"`  | `{ isWrongPassword: boolean }` | Webview caught `PasswordException`; asks host to prompt |
-| Extension → Webview | `"password"`          | `{ value: string }`            | Password entered by user; webview retries `getDocument` |
-| Extension → Webview | `"passwordCancelled"` | —                              | User dismissed input box; webview shows status message  |
+1. **Index:**
+   - After the first page renders, the page reads the text of every page and stores it per page.
+   - A query typed before the index is ready runs again when the index completes.
+2. **Match and highlight:**
+   - A query scans the index into a flat match list.
+   - After the text layer renders, the highlighter wraps matching text inside each text node in `<mark>` elements.
+   - The current match gets an extra class and scrolls into view.
 
-#### Password flow sequence
+- **Limit:**
+  - A match that spans two text runs is counted but not highlighted. The decision log records this.
 
-```
-Webview: getDocument(url) → PasswordException
-Webview → Extension: { type: "passwordRequired", isWrongPassword: false }
-Extension: vscode.window.showInputBox({ password: true })
-Extension → Webview: { type: "password", value }   ← or "passwordCancelled" if dismissed
-Webview: getDocument(url, password)
-  └─ success → render normally
-  └─ PasswordException again → retry (max 3 attempts total)
-  └─ cancelled or 3 failures → showStatus("Password required…")
-```
+## Guidelines for changes
 
-The password value is never logged, never stored in `vscode.setState`, and is not assigned to any variable that outlives the `getDocument` call.
-
-## PDF.js Integration
-
-PDF.js is consumed as a static local bundle, not as an npm dependency.
-
-**Why not an npm dep?**
-
-- The extension ships source directly (no bundler). `require('pdfjs-dist')` would need a bundler to work in the webview context.
-- Bundling PDF.js into a Webview-compatible IIFE is simpler to manage as a one-time `lib/` asset.
-
-**Setup (one-time, during development):**
-
-1. Download the prebuilt PDF.js dist from [mozilla/pdf.js releases](https://github.com/mozilla/pdf.js/releases)
-2. Copy `pdfjs-dist/build/pdf.mjs` and `pdfjs-dist/build/pdf.worker.mjs` into `lib/pdfjs/`
-3. These files are committed to the repo — no build step, no CDN
-
-**Worker setup in webview:**
-
-```javascript
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUri; // webview URI to lib/pdfjs/pdf.worker.mjs
-```
-
-**Available PDF.js exports (from `pdf.mjs`):**
-
-`getDocument`, `TextLayer`, `GlobalWorkerOptions`, `RenderingCancelledException`, and other rendering primitives. The viewer-specific classes (`PDFFindController`, `EventBus`) are **not** exported — see In-Document Search below for how search is handled without them.
-
-## In-Document Search
-
-In-document search (`Ctrl+F` / `Cmd+F`) is implemented without `PDFFindController` (not exported by the bundled `pdf.mjs`). Instead it uses a two-stage approach:
-
-**Stage 1 — Text indexing (after PDF load):**
-
-`buildSearchIndex()` iterates all pages, calls `page.getTextContent()`, and stores the concatenated text per page:
-
-```javascript
-searchIndex = [{ page: 1, fullText: "…" }, { page: 2, fullText: "…" }, …]
-```
-
-**Stage 2 — Search and highlight:**
-
-`runSearch(query)` scans `searchIndex` to build a flat `searchMatches = [{ page, occurrenceOnPage }]` list. `navigateToMatch(idx)` navigates to the page of the target match. After the text layer renders, `applySearchHighlights(query)` walks the `.textLayer span` elements. Instead of highlighting the entire span, it reconstructs the span's content using a `DocumentFragment`, interleaving plain text nodes with precise `<mark class="search-mark">` elements for exact substring matches. The specific occurrence being navigated to receives `.search-highlight-current`.
-
-**Highlight CSS:** Uses semi-transparent `rgba` background for `.search-mark` elements within the text layer — safe under the existing CSP. No external resources needed.
-
-**Security note:** The search text is never executed, injected into the DOM as HTML, or sent outside the webview. It is used only for string comparison against in-memory text content.
-
-## Guidelines for Changes
-
-**Safe to modify:** CSS styling, zoom UI, toolbar layout, page counter, keyboard shortcuts.
-
-**Requires care:** CSP header, nonce generation, `localResourceRoots`, PDF.js worker setup, `isEvalSupported`.
-
-**Never change:** The read-only nature of the provider. No modification of PDF bytes. No execution of embedded PDF JavaScript.
+| Kind of change                                               | Care needed                                               |
+| ------------------------------------------------------------ | --------------------------------------------------------- |
+| Styling, toolbar layout, shortcuts                           | Safe. Keep VS Code theme variables                        |
+| CSP, nonce, `localResourceRoots`, worker setup, link opening | Needs a security review and updates to the matching tests |
+| Anything that writes, edits or executes document content     | Not allowed                                               |
