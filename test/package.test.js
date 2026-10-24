@@ -44,6 +44,14 @@ describe("manifest", () => {
 		assert.deepEqual(manifest.capabilities, { untrustedWorkspaces: { supported: true } });
 	});
 
+	it("ships an icon within the Marketplace limits (128 to 1024 pixels, square)", () => {
+		const png = fs.readFileSync(path.join(root, manifest.icon));
+		const width = png.readUInt32BE(16);
+		const height = png.readUInt32BE(20);
+		assert.equal(width, height);
+		assert.ok(width >= 128 && width <= 1024, `icon is ${width}x${height}`);
+	});
+
 	it("uses caret ranges or exact pins only, never tags", () => {
 		for (const [name, range] of Object.entries(manifest.devDependencies)) {
 			assert.match(range, /^\^?\d+\.\d+\.\d+$/, `${name}: ${range}`);

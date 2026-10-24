@@ -78,7 +78,7 @@ Release only from `main`, only when the maintainer says so, and only after the m
    - Update `package.json`, `package-lock.json` and `CHANGELOG.md` together.
    - List only user-facing changes in the changelog.
 2. **Store checks:**
-   - The icon dimensions are within the Marketplace limits.
+   - The icon is square and between 128 and 1024 pixels wide. The package test enforces this; `vsce publish` rejects larger icons.
    - `npx vsce ls` lists no development files. The package test enforces this.
    - `engines.vscode` and the `@types/vscode` pin agree. The package test enforces this.
 3. **Clean verification:**
