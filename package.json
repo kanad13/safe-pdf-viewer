@@ -76,10 +76,12 @@
 	},
 	"scripts": {
 		"lint": "eslint .",
-		"test": "node --test 'test/**/*.test.js' && npm run lint",
+		"test": "node --test 'test/**/*.test.js' && npm run lint && npm run format:check",
 		"package": "vsce package",
 		"publish": "vsce publish",
-		"test:e2e": "playwright test"
+		"test:e2e": "playwright test",
+		"format": "prettier --write .",
+		"format:check": "prettier --check ."
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

@@ -28,13 +28,13 @@ One active webview panel per file (VS Code manages this via the custom editor AP
 
 ## Key Functions
 
-| Function                                                                    | Purpose                                                                                                                   |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `getNonce()`                                                                | Generates a cryptographically random 32-character hex token for CSP (uses `crypto.randomBytes`)                          |
-| `getDefaultZoom()`                                                          | Reads `safePdfViewer.defaultZoom` from VS Code config; falls back to `"fit-page"` for unrecognised values                |
+| Function                                                                    | Purpose                                                                                                                         |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `getNonce()`                                                                | Generates a cryptographically random 32-character hex token for CSP (uses `crypto.randomBytes`)                                 |
+| `getDefaultZoom()`                                                          | Reads `safePdfViewer.defaultZoom` from VS Code config; falls back to `"fit-page"` for unrecognised values                       |
 | `getWebviewContent(panel, extensionUri, nonce)`                             | Reads `src/webview.html`, replaces `{{NONCE}}`, `{{PDFJS_URI}}`, `{{WORKER_URI}}`, `{{DEFAULT_ZOOM}}` tokens, returns full HTML |
-| `activate(context)`                                                         | Registers `CustomReadonlyEditorProvider`; new panels read zoom default from VS Code config at open time                  |
-| `SafePdfEditorProvider.resolveCustomEditor(document, webviewPanel, _token)` | Sets up webview options, CSP, and posts initial config; handles incoming messages                                         |
+| `activate(context)`                                                         | Registers `CustomReadonlyEditorProvider`; new panels read zoom default from VS Code config at open time                         |
+| `SafePdfEditorProvider.resolveCustomEditor(document, webviewPanel, _token)` | Sets up webview options, CSP, and posts initial config; handles incoming messages                                               |
 
 ## VS Code API: CustomReadonlyEditorProvider
 
@@ -98,13 +98,13 @@ The webview-side state (canvas content, scroll position) lives entirely in the w
 
 Messages follow a `{ type, ...payload }` convention:
 
-| Direction           | Message type         | Payload                         | Purpose                                                     |
-| ------------------- | -------------------- | ------------------------------- | ----------------------------------------------------------- |
-| Extension → Webview | `"init"`             | `{ pdfUrl }`                    | Sent once after webview is ready; triggers PDF load         |
-| Webview → Extension | `"ready"`            | —                               | Signals DOMContentLoaded, triggers init                     |
-| Webview → Extension | `"passwordRequired"` | `{ isWrongPassword: boolean }`  | Webview caught `PasswordException`; asks host to prompt     |
-| Extension → Webview | `"password"`         | `{ value: string }`             | Password entered by user; webview retries `getDocument`     |
-| Extension → Webview | `"passwordCancelled"`| —                               | User dismissed input box; webview shows status message      |
+| Direction           | Message type          | Payload                        | Purpose                                                 |
+| ------------------- | --------------------- | ------------------------------ | ------------------------------------------------------- |
+| Extension → Webview | `"init"`              | `{ pdfUrl }`                   | Sent once after webview is ready; triggers PDF load     |
+| Webview → Extension | `"ready"`             | —                              | Signals DOMContentLoaded, triggers init                 |
+| Webview → Extension | `"passwordRequired"`  | `{ isWrongPassword: boolean }` | Webview caught `PasswordException`; asks host to prompt |
+| Extension → Webview | `"password"`          | `{ value: string }`            | Password entered by user; webview retries `getDocument` |
+| Extension → Webview | `"passwordCancelled"` | —                              | User dismissed input box; webview shows status message  |
 
 #### Password flow sequence
 

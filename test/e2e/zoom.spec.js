@@ -1,153 +1,81 @@
-/* global document */
 const { test, expect } = require("@playwright/test");
+const { openViewer, PLAIN, EULER } = require("./helpers");
+
+const canvasWidth = (page) =>
+	page.locator("#pdf-canvas").evaluate((c) => parseInt(c.style.width, 10));
 
 test.describe("Zoom", () => {
-	test("zoom-in button increases canvas width and updates --scale-factor", async ({
-		page,
-	}) => {
-		await page.goto("http://localhost:8080/");
-
-		// Wait for initial render
-		const canvas = page.locator("#pdf-canvas");
-		await expect(canvas).toBeVisible();
-		await page.waitForFunction(() => {
-			const c = document.getElementById("pdf-canvas");
-			return c && c.style.width && parseInt(c.style.width, 10) > 0;
+	test("fit-page shows the whole page without scrollbars", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN });
+		const overflow = await page.evaluate(() => {
+			const v = document.getElementById("viewport");
+			return { x: v.scrollWidth > v.clientWidth, y: v.scrollHeight > v.clientHeight };
 		});
-
-		// Get width after fit-page default load
-		const initialWidthStr = await canvas.evaluate((el) => el.style.width);
-		const initialWidth = parseInt(initialWidthStr, 10);
-
-		// Click zoom-in several times to get beyond the fit-page scale
-		const btnZoomIn = page.locator("#btn-zoom-in");
-		await btnZoomIn.click();
-		await btnZoomIn.click();
-		await btnZoomIn.click();
-
-		// Wait for canvas to re-render with new width
-		await page.waitForFunction((prevWidth) => {
-			const c = document.getElementById("pdf-canvas");
-			if (!c || !c.style.width) return false;
-			const currentWidth = parseInt(c.style.width, 10);
-			return currentWidth !== prevWidth && currentWidth > 0;
-		}, initialWidth);
-
-		const newWidthStr = await canvas.evaluate((el) => el.style.width);
-		const newWidth = parseInt(newWidthStr, 10);
-		expect(newWidth).toBeGreaterThan(0);
-		expect(newWidth).not.toBe(initialWidth);
-
-		// Check --scale-factor on textLayer
-		const textLayer = page.locator("#text-layer");
-		const scaleFactorStr = await textLayer.evaluate((el) =>
-			el.style.getPropertyValue("--scale-factor"),
-		);
-		expect(scaleFactorStr).not.toBeNull();
-		expect(parseFloat(scaleFactorStr)).toBeGreaterThan(0);
+		expect(overflow).toEqual({ x: false, y: false });
 	});
 
-	test("fit-page button resets to fit-page zoom without horizontal scrollbar", async ({
-		page,
-	}) => {
-		await page.goto("http://localhost:8080/");
-
-		// Wait for initial render
-		const canvas = page.locator("#pdf-canvas");
-		await expect(canvas).toBeVisible();
-		await page.waitForFunction(() => {
-			const c = document.getElementById("pdf-canvas");
-			return c && c.style.width && parseInt(c.style.width, 10) > 0;
-		});
-
-		// Zoom in first to move away from fit-page
-		const btnZoomIn = page.locator("#btn-zoom-in");
-		await btnZoomIn.click();
-		await btnZoomIn.click();
-		await btnZoomIn.click();
-
-		const zoomedWidthStr = await canvas.evaluate((el) => el.style.width);
-		const zoomedWidth = parseInt(zoomedWidthStr, 10);
-
-		// Click Fit Page to reset
-		const btnFit = page.locator("#btn-zoom-fit");
-		await expect(btnFit).toBeVisible();
-		await btnFit.click();
-
-		// Wait for canvas to resize back
-		await page.waitForFunction((prevWidth) => {
-			const c = document.getElementById("pdf-canvas");
-			if (!c || !c.style.width) return false;
-			const currentWidth = parseInt(c.style.width, 10);
-			return currentWidth !== prevWidth && currentWidth > 0;
-		}, zoomedWidth);
-
-		// After fit-page, no horizontal scrollbar
-		const hasHorizontalScroll = await page.evaluate(() => {
-			const viewport =
-				document.getElementById("viewport") ||
-				document.querySelector(".viewport");
-			return viewport.scrollWidth > viewport.clientWidth;
-		});
-		expect(hasHorizontalScroll).toBe(false);
+	test("zoom steps follow the offered levels in both directions", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN, zoom: "100" });
+		const at100 = await canvasWidth(page);
+		await page.locator("#btn-zoom-in").click();
+		await expect.poll(() => canvasWidth(page)).toBe(Math.round(at100 * 1.25));
+		await page.locator("#btn-zoom-out").click();
+		await expect.poll(() => canvasWidth(page)).toBe(at100);
+		await page.locator("#btn-zoom-out").click();
+		await expect.poll(() => canvasWidth(page)).toBe(Math.round(at100 * 0.75));
 	});
 
-	test("zoom-out button decreases canvas width", async ({ page }) => {
-		await page.goto("http://localhost:8080/");
-
-		// Wait for initial render
-		const canvas = page.locator("#pdf-canvas");
-		await expect(canvas).toBeVisible();
-		await page.waitForFunction(() => {
-			const c = document.getElementById("pdf-canvas");
-			return c && c.style.width && parseInt(c.style.width, 10) > 0;
-		});
-
-		// First zoom in so there is room to zoom out
-		const btnZoomIn = page.locator("#btn-zoom-in");
-		await btnZoomIn.click();
-		await btnZoomIn.click();
-		await btnZoomIn.click();
-
-		const zoomedWidthStr = await canvas.evaluate((el) => el.style.width);
-		const zoomedWidth = parseInt(zoomedWidthStr, 10);
-
-		// Now zoom out once
-		const btnZoomOut = page.locator("#btn-zoom-out");
-		await btnZoomOut.click();
-
-		await page.waitForFunction((prevWidth) => {
-			const c = document.getElementById("pdf-canvas");
-			if (!c || !c.style.width) return false;
-			const currentWidth = parseInt(c.style.width, 10);
-			return currentWidth !== prevWidth && currentWidth > 0;
-		}, zoomedWidth);
-
-		const smallerWidthStr = await canvas.evaluate((el) => el.style.width);
-		const smallerWidth = parseInt(smallerWidthStr, 10);
-		expect(smallerWidth).toBeGreaterThan(0);
-		expect(smallerWidth).toBeLessThan(zoomedWidth);
+	test("+ and - keys zoom and stop at 200% and 50%", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN, zoom: "100" });
+		const at100 = await canvasWidth(page);
+		for (let i = 0; i < 6; i++) {
+			await page.keyboard.press("+");
+		}
+		await expect.poll(() => canvasWidth(page)).toBe(at100 * 2);
+		for (let i = 0; i < 8; i++) {
+			await page.keyboard.press("-");
+		}
+		await expect.poll(() => canvasWidth(page)).toBe(at100 / 2);
 	});
 
-	test("fit-page does not produce a horizontal scrollbar on initial load", async ({
+	test("the default zoom setting decides the starting size", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN, zoom: "50" });
+		const half = await canvasWidth(page);
+		await page.locator("#btn-zoom-in").click();
+		await page.locator("#btn-zoom-in").click();
+		await expect.poll(() => canvasWidth(page)).toBe(Math.round(half * 2));
+	});
+
+	test("Fit Page after zooming in returns to the fitted size without scrollbars", async ({
 		page,
 	}) => {
-		await page.goto("http://localhost:8080/");
+		await openViewer(page, { pdf: EULER });
+		const fitted = await canvasWidth(page);
+		for (let i = 0; i < 3; i++) {
+			await page.locator("#btn-zoom-in").click();
+		}
+		await expect.poll(() => canvasWidth(page)).toBeGreaterThan(fitted);
+		await page.locator("#btn-zoom-fit").click();
+		await expect.poll(() => canvasWidth(page)).toBe(fitted);
+		// Layout settles after the render finishes, so assert on the settled state.
+		await expect
+			.poll(() =>
+				page.evaluate(() => {
+					const v = document.getElementById("viewport");
+					return v.scrollWidth > v.clientWidth;
+				}),
+			)
+			.toBe(false);
+	});
 
-		// Wait for initial render (default is fit-page)
-		const canvas = page.locator("#pdf-canvas");
-		await expect(canvas).toBeVisible();
-		await page.waitForFunction(() => {
-			const c = document.getElementById("pdf-canvas");
-			return c && c.style.width && parseInt(c.style.width, 10) > 0;
-		});
-
-		const hasHorizontalScroll = await page.evaluate(() => {
-			const viewport =
-				document.getElementById("viewport") ||
-				document.querySelector(".viewport");
-			return viewport.scrollWidth > viewport.clientWidth;
-		});
-		expect(hasHorizontalScroll).toBe(false);
+	test("the text layer scale follows the zoom", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN, zoom: "100" });
+		const factor = () =>
+			page
+				.locator("#text-layer")
+				.evaluate((el) => parseFloat(el.style.getPropertyValue("--scale-factor")));
+		expect(await factor()).toBeCloseTo(1, 5);
+		await page.locator("#btn-zoom-in").click();
+		await expect.poll(factor).toBeCloseTo(1.25, 5);
 	});
 });
