@@ -40,6 +40,10 @@ describe("manifest", () => {
 		}
 	});
 
+	it("declares support for untrusted workspaces", () => {
+		assert.deepEqual(manifest.capabilities, { untrustedWorkspaces: { supported: true } });
+	});
+
 	it("uses caret ranges or exact pins only, never tags", () => {
 		for (const [name, range] of Object.entries(manifest.devDependencies)) {
 			assert.match(range, /^\^?\d+\.\d+\.\d+$/, `${name}: ${range}`);

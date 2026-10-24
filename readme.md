@@ -47,6 +47,8 @@ Scrolling past the end of a page turns to the next page.
 - **Protected files:**
   - Password-protected PDFs prompt for the password in a masked box.
   - A wrong password prompts again, three prompts in total.
+- **Workspace Trust:**
+  - Works in Restricted Mode, so PDFs open in workspaces you have not marked as trusted.
 - **Appearance:**
   - The toolbar and find panel follow your VS Code theme, including high contrast.
 

@@ -102,17 +102,18 @@ Webview: getDocument(url, password)
 
 PDF files are an attack surface. Several independent layers limit what a hostile document can do.
 
-| Layer                          | What it limits                                                                                            |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| CSP with a per-editor nonce    | Only the page's own module script runs; no eval; no network origin except the extension's resource origin |
-| Bundled PDF.js, no CDN         | The extension makes no outbound requests of its own                                                       |
-| `localResourceRoots`           | The webview reads only `lib/pdfjs/` and the folder of the open PDF                                        |
-| No document scripting          | No scripting sandbox ships, and the annotation layer renders with `enableScripting: false`                |
-| `isEvalSupported: false`       | Keeps PDF functions out of eval in PDF.js releases that honour the option; the bundled release ignores it |
-| `CustomReadonlyEditorProvider` | The extension never writes to disk                                                                        |
-| Link filtering                 | The host opens only http(s) addresses, and it opens the address it validated                              |
-| Text kept out of markup        | Search highlights and status text use text nodes; no dynamic `innerHTML`                                  |
-| Password handling              | Never logged, never persisted                                                                             |
+| Layer                          | What it limits                                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| CSP with a per-editor nonce    | Only the page's own module script runs; no eval; no network origin except the extension's resource origin                 |
+| Bundled PDF.js, no CDN         | The extension makes no outbound requests of its own                                                                       |
+| `localResourceRoots`           | The webview reads only `lib/pdfjs/` and the folder of the open PDF                                                        |
+| No document scripting          | No scripting sandbox ships, and the annotation layer renders with `enableScripting: false`                                |
+| `isEvalSupported: false`       | Keeps PDF functions out of eval in PDF.js releases that honour the option; the bundled release ignores it                 |
+| `CustomReadonlyEditorProvider` | The extension never writes to disk                                                                                        |
+| Link filtering                 | The host opens only http(s) addresses, and it opens the address it validated                                              |
+| Text kept out of markup        | Search highlights and status text use text nodes; no dynamic `innerHTML`                                                  |
+| Password handling              | Never logged, never persisted                                                                                             |
+| Workspace Trust                | Declared as supported: the extension runs no workspace code, and a workspace-defined zoom is checked against a fixed list |
 
 ### Content Security Policy
 

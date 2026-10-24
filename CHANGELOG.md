@@ -2,7 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.1] - 2026-10-24
+## [1.2.0] - 2026-10-24
+
+### Added
+
+- Works in Restricted Mode, so PDFs open in workspaces you have not marked as trusted
 
 ### Changed
 
