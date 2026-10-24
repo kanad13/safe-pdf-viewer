@@ -33,6 +33,13 @@ function reset() {
 	state.registrations = [];
 }
 
+/**
+ * Builds a fake `vscode.Uri`.
+ *
+ * @param {string} fsPath - Path the fake reports as `fsPath`, `path` and `toString()`
+ * @param {object} [extra] - Extra fields, e.g. `href` for parsed web URIs
+ * @returns {{fsPath: string, path: string, toString: () => string}} Fake URI
+ */
 const makeUri = (fsPath, extra = {}) => ({
 	fsPath,
 	path: fsPath,

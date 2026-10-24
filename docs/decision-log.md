@@ -9,7 +9,7 @@ Each entry states what the feature is, why it costs more than it returns today, 
 - **Verdict:** needs the maintainer's decision (defer until then).
 - **What it is:**
   - Many scanned PDFs store pages as JPEG 2000 (JPX) or JBIG2 images. PDF.js decodes them with small WebAssembly programs that ship in its `wasm/` folder.
-- **Today:**
+- **Behavior:**
   - The viewer shows such images as blank areas. The page stays usable and the console prints a warning. `render.spec.js` pins this behavior with `jpx-image.pdf`.
 - **Cost:**
   - Decoding needs the `wasm/` files in the package, a `wasmUrl` option, and most likely `'wasm-unsafe-eval'` in `script-src`: the worker starts from a blob and inherits the page's CSP (unverified in a real editor window).
@@ -50,7 +50,7 @@ Each entry states what the feature is, why it costs more than it returns today, 
 
 - **Verdict:** defer.
 - **What it is:**
-  - Show all pages in one scrolling column instead of one page at a time.
+  - Show all pages in one scrolling column. The viewer shows one page at a time.
 - **Cost:**
   - Page virtualization, memory management and a different search and zoom model. It is a rewrite of the render path.
 - **Reopen when:**
@@ -78,7 +78,7 @@ Each entry states what the feature is, why it costs more than it returns today, 
 
 ## Apply the default-zoom setting to open tabs
 
-- **Verdict:** reject for now.
+- **Verdict:** reject.
 - **What it is:**
   - Re-render open viewers when `safePdfViewer.defaultZoom` changes.
 - **Cost:**

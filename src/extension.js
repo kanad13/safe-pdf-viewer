@@ -96,7 +96,7 @@ function renderWebviewHtml(template, values) {
 		NONCE: values.nonce,
 		PDFJS_URI: escapeForScriptString(values.pdfjsUri),
 		WORKER_URI: escapeForScriptString(values.workerUri),
-		DEFAULT_ZOOM: values.defaultZoom,
+		DEFAULT_ZOOM: escapeForScriptString(values.defaultZoom),
 	};
 	const cspTag = `<meta http-equiv="Content-Security-Policy" content="${buildCsp(values.nonce, values.cspSource)}">`;
 	return template.replace(TEMPLATE_PATTERN, (match, token) =>
@@ -283,6 +283,10 @@ function activate(context) {
 	context.subscriptions.push(registration);
 }
 
+/**
+ * Deactivation hook. Nothing to release: editor registrations are disposed through
+ * `context.subscriptions`.
+ */
 function deactivate() {}
 
 module.exports = {

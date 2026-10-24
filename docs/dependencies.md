@@ -76,7 +76,7 @@ A version qualifies only when it satisfies every rule:
   - Add a package override only when no upgrade path clears an advisory.
   - Re-test each override at every review and remove it when the audit is clean without it.
 - **CDN libraries:**
-  - Libraries loaded at run time from a CDN use exact `x.y.z` versions. Never use a floating or major-only tag. The extension currently loads none.
+  - Libraries loaded at run time from a CDN use exact `x.y.z` versions. Never use a floating or major-only tag. The extension loads none.
 
 ## Quarterly review procedure
 
