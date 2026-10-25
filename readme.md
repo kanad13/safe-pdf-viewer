@@ -84,6 +84,7 @@ Report vulnerabilities as described in [SECURITY.md](SECURITY.md). The security 
 - [docs/dependencies.md](docs/dependencies.md): version policy and the quarterly review.
 - [docs/architecture.md](docs/architecture.md): design and security model.
 - [docs/workflows.md](docs/workflows.md): the procedure and stopping point for each kind of request.
+- [docs/sibling-extensions.md](docs/sibling-extensions.md): the other extensions published as KunalPathak, and the files they share.
 - [docs/decisions.md](docs/decisions.md): ideas not built, and what would reopen them.
 - [AGENTS.md](AGENTS.md): instructions for coding agents.
 - [CHANGELOG.md](CHANGELOG.md): version history.

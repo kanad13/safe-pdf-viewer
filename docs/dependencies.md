@@ -66,6 +66,7 @@ A version qualifies only when it satisfies every rule:
 - **Node floor:**
   - `engines.node` is the lowest Node version that every tool accepts and that is still supported upstream.
   - CI and the pre-release check run on exactly that version.
+  - `.nvmrc` holds that version and CI reads it. Change `.nvmrc` and `engines.node` together, because CI fails when they differ.
 - **Types:**
   - `@types/node` follows the Node floor's major version.
 - **Build tools:**
