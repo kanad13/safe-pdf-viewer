@@ -4,3 +4,8 @@ node_modules/
 test-results/
 .playwright/
 playwright-report/
+.env
+.env*
+*.log
+dist/
+.vscode-test/

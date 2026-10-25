@@ -124,11 +124,11 @@ The goal is a published version that matches a tagged commit.
 - **Local proof:**
   - Build the `.vsix`, run the [remaining manual checks](testing.md#remaining-manual-checks), and wait for the maintainer's confirmation that it works.
 - **Procedure:**
-  - Follow the [release procedure](development.md#release-procedure). No workflow publishes this extension: the maintainer runs `npm run publish` and `gh release create`.
+  - Follow the [release procedure](development.md#release-procedure). The tag push starts the release workflow, which creates the hosted release and publishes to Open VSX. The maintainer runs `npm run publish` for the Marketplace.
 - **Tag:**
   - Tag the exact commit that is published. If a fix lands after tagging, report it and ask before you move the tag.
 - **Verify:**
-  - Check the Marketplace listing (allow for propagation delay), the hosted release asset, and CI.
+  - Check the Marketplace listing (allow for propagation delay), Open VSX, the hosted release asset, and CI.
 
 ## Sync and Audit
 
