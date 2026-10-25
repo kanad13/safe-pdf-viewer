@@ -94,11 +94,14 @@ Release only from `main`, only when the maintainer says so, and only after the m
    - Merge the branch into `main` with a merge commit.
    - Run `npm test` on the merged result and confirm CI passes on `main`.
 5. **Tag and publish:**
-   - Tag the exact commit that is published.
-   - Push `main` and the tag, then run `npm run publish` with the existing `vsce` login.
-   - Create the hosted release with `gh release create vX.Y.Z` and attach the `.vsix`.
+   - Tag the exact commit that is published, with `git tag -a vX.Y.Z -m "Release version X.Y.Z"`.
+   - Push `main` and the tag. The tag push starts `.github/workflows/release.yml`. It checks that the tag is on `main` and matches `package.json` and the changelog entry, runs the tests, packages the extension, creates the hosted release with the `.vsix` attached, and publishes to Open VSX.
+   - The release workflow publishes to Open VSX. It signs in with a short-lived OIDC token that Open VSX issues to the registered trusted publisher (repository `kanad13/safe-pdf-viewer`, workflow `release.yml`), so no stored token is needed. The repository secret `OVSX_PAT` is a fallback: when it is set, the workflow uses it instead of OIDC. Delete it after a release has published through OIDC.
+   - If the run fails after the tag exists, fix the cause and start the workflow again from the Actions tab (**Release > Run workflow**, from `main`, with the tag). Open VSX ignores a version it already has, so repeating a run is safe.
+   - Run `npm run publish` with the existing `vsce` login to publish to the Marketplace.
 6. **Verify:**
    - The Marketplace listing shows the new version (allow time for propagation).
+   - The workflow ends green, and its last step confirms the version on Open VSX.
    - The hosted release exists with its asset.
    - CI is green.
 

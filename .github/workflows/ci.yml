@@ -1,33 +1,56 @@
 name: CI
 
+# Identical in every extension repo except NODE_VERSION (safe-pdf-viewer also runs its browser tests).
+
 on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
 
 permissions:
   contents: read
+
+# The Node floor from package.json engines, so CI catches use of newer-only features.
+env:
+  NODE_VERSION: "22.13.0"
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # The lowest supported Node (engines.node), because glob handling and runner output differ between versions.
+
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.13.0
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
+
       - run: npm ci
-      - name: Unit tests, lint and format check
+
+      - name: Tests, lint and format check
         run: npm test
-      - name: Production dependency audit
+
+      - name: Audit shipped dependencies
         run: npm audit --omit=dev
+
+      # The only step that differs from the other extensions: this one renders PDFs in a real browser.
       - name: Browser tests
         run: |
           npx playwright install --with-deps chromium
           npm run test:e2e
         env:
           CI: "true"
-      - name: Build the package
+
+      - name: Package extension
         run: npm run package
+
+      - name: Confirm exactly one .vsix was created
+        run: |
+          shopt -s nullglob
+          FILES=(*.vsix)
+          if [[ ${#FILES[@]} -ne 1 ]]; then
+            echo "::error::Expected exactly one .vsix, found ${#FILES[@]}."
+            exit 1
+          fi
+          echo "Package created: ${FILES[0]}"
