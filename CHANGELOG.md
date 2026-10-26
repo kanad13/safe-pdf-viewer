@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.2] - 2026-10-26
+
+### Fixed
+
+- Search highlights and text selection now line up with the text on the page. They drifted onto neighboring words before.
+
+### Changed
+
+- The README shows screenshots of the viewer.
+
 ## [1.3.1] - 2026-10-26
 
 ### Security
