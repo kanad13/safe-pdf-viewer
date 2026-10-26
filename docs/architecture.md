@@ -126,6 +126,8 @@ worker-src blob: CSP_SOURCE;
 connect-src CSP_SOURCE;
 style-src 'unsafe-inline';
 img-src data:;
+base-uri 'none';
+form-action 'none';
 ```
 
 - **Scripts:**
@@ -136,6 +138,8 @@ img-src data:;
   - `connect-src` lets PDF.js read the document and the worker file from the resource origin.
 - **Styles:**
   - PDF.js positions text and annotation elements with inline styles, so `'unsafe-inline'` is required for styles only.
+- **Base tag and forms:**
+  - `base-uri 'none'` and `form-action 'none'` close two injection routes that the page never needs.
 - **Images:**
   - `img-src data:` is kept as a precaution. The test documents render without it; see the decision log.
 

@@ -44,7 +44,7 @@ function getDefaultZoom() {
  * Builds the Content Security Policy for the viewer webview.
  *
  * `default-src 'none'` plus an explicit allow-list keeps a hostile PDF from loading anything the
- * viewer did not ask for. `style-src 'unsafe-inline'` is required because PDF.js positions text
+ * viewer did not ask for. `base-uri` and `form-action` are `'none'` because the page needs neither a base tag nor a form post. `style-src 'unsafe-inline'` is required because PDF.js positions text
  * and annotation elements with inline styles; scripts stay nonce-gated.
  *
  * @param {string} nonce - CSP nonce token
@@ -59,6 +59,8 @@ function buildCsp(nonce, cspSource) {
 		`connect-src ${cspSource}`,
 		"style-src 'unsafe-inline'",
 		"img-src data:",
+		"base-uri 'none'",
+		"form-action 'none'",
 	].join("; ");
 }
 

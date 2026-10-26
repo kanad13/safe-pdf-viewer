@@ -949,7 +949,7 @@
 
 		window.addEventListener("message", async (event) => {
 			const message = event.data;
-			if (message.type === "init") {
+			if (message && message.type === "init") {
 				await loadPdf(message.pdfUrl, null, 1);
 			}
 		});
