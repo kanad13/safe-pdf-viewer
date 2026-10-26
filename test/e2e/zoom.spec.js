@@ -78,4 +78,25 @@ test.describe("Zoom", () => {
 		await page.locator("#btn-zoom-in").click();
 		await expect.poll(factor).toBeCloseTo(1.25, 5);
 	});
+
+	test("text layer runs are sized and stretched from the values PDF.js sets", async ({ page }) => {
+		await openViewer(page, { pdf: PLAIN, zoom: "100" });
+		const run = () =>
+			page
+				.locator("#text-layer span")
+				.first()
+				.evaluate((el) => ({
+					fontHeight: parseFloat(el.style.getPropertyValue("--font-height")),
+					fontSize: parseFloat(getComputedStyle(el).fontSize),
+					scaleX: parseFloat(el.style.getPropertyValue("--scale-x")),
+					stretch: new window.DOMMatrix(getComputedStyle(el).transform).a,
+				}));
+		const at100 = await run();
+		// Without the stylesheet rule the run keeps the browser's 16 px default, and selection and
+		// search highlights drift away from the text drawn on the canvas.
+		expect(at100.fontSize).toBeCloseTo(at100.fontHeight, 1);
+		expect(at100.stretch).toBeCloseTo(at100.scaleX, 3);
+		await page.locator("#btn-zoom-in").click();
+		await expect.poll(async () => (await run()).fontSize).toBeCloseTo(at100.fontHeight * 1.25, 1);
+	});
 });

@@ -141,3 +141,43 @@ describe("task routing", () => {
 		);
 	});
 });
+
+describe("readme images", () => {
+	const source = fs.readFileSync(path.join(root, "readme.md"), "utf8");
+	// Markdown images and raw <img> tags
+	const images = [
+		...source.matchAll(
+			/!\[([^\]]*)\]\(([^)\s]+)\)|<img\b[^>]*?\bsrc="([^"]+)"[^>]*?(?:\balt="([^"]*)")?[^>]*>/g,
+		),
+	].map((m) => ({
+		alt: m[1] ?? m[4] ?? "",
+		src: m[2] ?? m[3],
+	}));
+	const rawBase = "https://raw.githubusercontent.com/kanad13/safe-pdf-viewer/main/assets/";
+
+	it("has images", () => {
+		assert.ok(images.length >= 4, "the readme should show the extension");
+	});
+
+	// The package leaves readme-*.png out, so a relative image link breaks on the Marketplace and Open VSX pages.
+	// A github.com/blob/ link returns an HTML page, so only the raw host serves the file itself.
+	it("loads every image from an absolute raw.githubusercontent.com URL on main", () => {
+		for (const { src } of images) {
+			assert.ok(src.startsWith(rawBase), `${src} must start with ${rawBase}`);
+		}
+	});
+
+	it("points every image at a PNG that exists in assets/", () => {
+		for (const { src } of images) {
+			const file = path.join(root, "assets", src.slice(rawBase.length));
+			assert.ok(fs.existsSync(file), `${src} has no file at ${file}`);
+			assert.match(src, /\.png$/, "images are PNG only, because the Marketplace rejects SVG");
+		}
+	});
+
+	it("gives every image alt text", () => {
+		for (const { src, alt } of images) {
+			assert.ok(alt.trim().length >= 10, `${src} needs descriptive alt text`);
+		}
+	});
+});

@@ -57,6 +57,21 @@ npm run test:e2e
 - Link targets pass `toExternalUrl()` before `openExternal`.
 - The unit tests for these points still fail when you break each point on purpose.
 
+## Readme images
+
+- **Link:**
+  - Link each image by an absolute `https://raw.githubusercontent.com/kanad13/safe-pdf-viewer/main/assets/<file>.png` URL.
+  - The package leaves `assets/readme-*.png` out, so a relative link breaks on the Marketplace and Open VSX pages. A `github.com/.../blob/...` link returns an HTML page, not the image.
+- **Format:**
+  - Use PNG, because the Marketplace rejects SVG. Name the files `assets/readme-*.png`, and give each image alt text of one full sentence.
+- **Merge order:**
+  - Add the file on the same branch as the link. The image URL works for readers only after the branch merges to `main`.
+- **Source:**
+  - `examples/showcase.pdf` is the document behind the screenshots. `node test/fixtures/make-showcase.js` regenerates it.
+  - Start `node test/e2e/fixtures/server.js`, open `http://localhost:8080/?pdf=/examples/showcase.pdf`, capture in a 1100 by 760 viewport, and crop. On macOS, `sips -c H W --cropOffset Y X` ignores a zero offset and crops from the centre, so use an offset of 1. Open every cropped image before you link it.
+- **Check:**
+  - The `readme images` suite in `test/docs.test.js` checks the URLs, the files, the format, the alt text, and a minimum of four images.
+
 ## Manual testing with a local package
 
 1. Run `npm run package`.
