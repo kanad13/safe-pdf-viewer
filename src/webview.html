@@ -153,6 +153,21 @@
 			--total-scale-factor: var(--scale-factor);
 			--scale-round-x: 1px;
 			--scale-round-y: 1px;
+			--min-font-size: 1;
+			--text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+			--min-font-size-inv: calc(1 / var(--min-font-size));
+		}
+
+		/* PDF.js sets --font-height, --scale-x and --rotate on every run and leaves it to the
+		   stylesheet to apply them. Without this rule each run keeps the 16 px default and no
+		   width stretch, so selection boxes and search highlights miss the text on the canvas. */
+		.textLayer > :not(.markedContent),
+		.textLayer .markedContent span:not(.markedContent) {
+			--font-height: 0;
+			--scale-x: 1;
+			--rotate: 0deg;
+			font-size: calc(var(--text-scale-factor) * var(--font-height));
+			transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
 		}
 
 		.textLayer ::selection {
