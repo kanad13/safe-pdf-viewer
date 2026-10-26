@@ -57,3 +57,24 @@ done
 - **Stop for approval:**
   - Do not push, merge, tag, or release a sibling without the maintainer's instruction.
   - Report what changed in each sibling and which siblings need no change.
+
+## Tools and authority
+
+Three command-line tools are installed and signed in on the maintainer's machine. Look up each command with `--help` before you rely on this list.
+
+- **Tools:**
+  - `gh` (GitHub CLI): check with `gh auth status`.
+  - `vsce` (Visual Studio Marketplace): check with `vsce verify-pat KunalPathak`.
+  - `ovsx` (Open VSX): check with `ovsx verify-pat KunalPathak`, which reads the token from the `OVSX_PAT` variable. Without it, `ovsx show KunalPathak.<name>` still reads the registry.
+- **Reading needs no approval:**
+  - Use the tools for every GitHub, Marketplace, and Open VSX read: repository, release, issue, pull request, workflow, and registry state.
+  - Do not ask the maintainer to open a web page for something a tool can print.
+  - Examples: `gh release view`, `gh run list`, `gh pr view`, `vsce show KunalPathak.<name>`, `ovsx show KunalPathak.<name>`.
+- **Changing state needs the maintainer's word:**
+  - Merge, push, tag, and publish still happen only when the maintainer says so (see "Git and Commits" in `AGENTS.md`).
+  - After the maintainer has said so, run every step with the tools and do not ask again for each command.
+- **Missing tool or sign-in:**
+  - Install the tool (`brew install gh`, `npm install -g @vscode/vsce ovsx`), then ask the maintainer to sign in.
+  - The agent never reads, prints, stores, or pastes a token.
+- **Permission prompts:**
+  - This text does not change the prompts of an agent harness. In Claude Code, they come from `settings.json`, which the maintainer edits.
