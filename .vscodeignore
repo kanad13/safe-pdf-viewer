@@ -21,5 +21,6 @@ playwright.config.js
 # PDF.js source maps are not shipped; only the .mjs bundles are needed.
 lib/pdfjs/*.map
 
+assets/readme-*.png
 playwright-report/**
 test-results/**
