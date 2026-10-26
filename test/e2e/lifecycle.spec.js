@@ -62,4 +62,16 @@ test.describe("Timers and teardown", () => {
 		await page.close();
 		expect(problems.errors).toEqual([]);
 	});
+
+	test("a message without an object payload is ignored", async ({ page }) => {
+		const problems = await openViewer(page, { pdf: EULER });
+		await page.evaluate(() => {
+			window.postMessage(null, "*");
+			window.postMessage("text", "*");
+		});
+		// One macrotask lets the message events run before the check.
+		await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 50)));
+		expect(problems.errors).toEqual([]);
+		await waitForPage(page, 1);
+	});
 });

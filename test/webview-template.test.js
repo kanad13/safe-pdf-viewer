@@ -50,6 +50,11 @@ describe("buildCsp", () => {
 		);
 	});
 
+	it("blocks base-tag rewrites and form posts", () => {
+		assert.deepEqual(directives["base-uri"], ["'none'"]);
+		assert.deepEqual(directives["form-action"], ["'none'"]);
+	});
+
 	it("limits workers and fetches to the webview resource origin (plus blob workers)", () => {
 		assert.deepEqual(directives["worker-src"], ["blob:", CSP_SOURCE]);
 		assert.deepEqual(directives["connect-src"], [CSP_SOURCE]);

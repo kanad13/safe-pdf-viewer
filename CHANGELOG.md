@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1] - 2026-10-26
+
+### Security
+
+- The viewer page now blocks base-tag rewrites and form posts in its Content Security Policy.
+
+### Fixed
+
+- The viewer ignores a stray message that has no object payload instead of raising an error.
+
 ## [1.3.0] - 2026-10-25
 
 ### Changed

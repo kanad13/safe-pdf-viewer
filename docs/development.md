@@ -97,10 +97,10 @@ Release only from `main`, only when the maintainer says so, and only after the m
    - Tag the exact commit that is published, with `git tag -a vX.Y.Z -m "Release version X.Y.Z"`.
    - Push `main` and the tag. The tag push starts `.github/workflows/release.yml`. It checks that the tag is on `main` and matches `package.json` and the changelog entry, runs the tests, packages the extension, creates the hosted release with the `.vsix` attached, and publishes to Open VSX.
    - The release workflow publishes to Open VSX. It signs in with a short-lived OIDC token that Open VSX issues to the registered trusted publisher (repository `kanad13/safe-pdf-viewer`, workflow `release.yml`), so no stored token is needed. The repository secret `OVSX_PAT` is a fallback: when it is set, the workflow uses it instead of OIDC. Delete it after a release has published through OIDC.
-   - If the run fails after the tag exists, fix the cause and start the workflow again from the Actions tab (**Release > Run workflow**, from `main`, with the tag). Open VSX ignores a version it already has, so repeating a run is safe.
+   - If the run fails after the tag exists, fix the cause and start the workflow again from the Actions tab (**Release > Run workflow**, from `main`, with the tag), or run `gh workflow run Release --ref main -f tag=vX.Y.Z`. Open VSX can be read-only for a while, and a retry then publishes it. Never re-push an old tag, because the workflow runs on every pushed `vX.Y.Z` tag. Open VSX ignores a version it already has, so repeating a run is safe.
    - Run `npm run publish` with the existing `vsce` login to publish to the Marketplace.
 6. **Verify:**
-   - The Marketplace listing shows the new version (allow time for propagation).
+   - The Marketplace page lags 5 to 10 minutes. Check it with `vsce show KunalPathak.safe-pdf-viewer`, and Open VSX with `ovsx show KunalPathak.safe-pdf-viewer`, not with a polling loop.
    - The workflow ends green, and its last step confirms the version on Open VSX.
    - The hosted release exists with its asset.
    - CI is green.
