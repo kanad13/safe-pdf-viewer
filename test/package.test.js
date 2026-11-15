@@ -17,6 +17,15 @@ describe("manifest", () => {
 		assert.equal(manifest.devDependencies["@types/vscode"], floor);
 	});
 
+	it("keeps the editor floor at or below Cursor's base, 1.105.0", () => {
+		// Cursor is the lowest fork base the README advertises. A higher floor blocks installation there.
+		// Raise this ceiling only for a named API need or a fork rebase, in every sibling extension.
+		const floor = manifest.engines.vscode.replace(/^\^/, "").split(".").map(Number);
+		const ceiling = [1, 105, 0];
+		const cmp = floor.findIndex((n, i) => n !== ceiling[i]);
+		assert.ok(cmp === -1 || floor[cmp] < ceiling[cmp], "engines.vscode is above 1.105.0");
+	});
+
 	it("declares the PDF.js version recorded in the source header", () => {
 		const header = fs.readFileSync(path.join(root, "src/extension.js"), "utf8").split("\n")[0];
 		const bundled = fs
