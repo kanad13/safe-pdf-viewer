@@ -51,13 +51,11 @@ A version qualifies only when it satisfies every rule:
 - **Targets:**
   - Test on the current stable editor release. Insiders builds are not a target.
 - **Floor:**
-  - `engines.vscode` is the newest editor release that is at least 12 months old.
-  - `@types/vscode` is pinned to exactly that version.
-  - Move both together at each quarterly review. A package test checks that they agree.
+  - `engines.vscode` is the lowest base version among the forks the README advertises. Cursor is the lowest today, at 1.105.x, so every sibling extension uses 1.105.0.
+  - `@types/vscode` is pinned to exactly that version. A package test checks that they agree and that the floor is not above 1.105.0.
+  - Raise the floor only when the code needs a newer API, or when the lowest advertised fork rebases onto a newer base. Never raise it because of a date. Move the floor, the pin, and the test ceiling together, in every sibling extension.
 - **Forks:**
-  - Before raising the floor, check the base version of every editor fork the README advertises.
-  - A floor above a fork's base blocks installation there.
-  - Present that trade-off to the maintainer when the floor would exclude a named fork.
+  - Before raising the floor, read each advertised fork's base version in its About dialog. A floor above a fork's base blocks installation there.
 - **Chromium:**
   - The floor release fixes the Chromium version that webviews run on. Read it from the editor's repository: `.npmrc` at the release tag names the Electron version, and Electron's release notes name its Chromium.
 
